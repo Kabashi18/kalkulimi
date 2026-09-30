@@ -32,14 +32,14 @@ const safeHandleResponse = async (response) => {
     try {
       data = JSON.parse(text);
     } catch {
-      data = { message: text.length < 200 ? text : `Gabim në server (${response.status})` };
+      data = { message: text.length < 200 ? text : `Përgjigje jo-JSON nga serveri (${response.status})` };
     }
   } else {
     data = { message: response.ok ? 'Sukses' : `Përgjigje e zbrazët (${response.status})` };
   }
 
   if (!response.ok) {
-    throw new Error(data.message || 'Ndodhi një gabim në kërkesë.');
+    throw new Error(data.message || `Gabim në kërkesë (${response.status})`);
   }
 
   return data;
@@ -48,70 +48,80 @@ const safeHandleResponse = async (response) => {
 export const expenseApi = {
   // Merr të dhënat e përmbledhjes dhe shpenzimet për përdoruesin e kyçur
   getSummary: async (userId = 'me') => {
+    const targetUrl = `${API_BASE}/expenses/summary/${userId}`;
+    console.log('[ExpenseAPI] GET Summary te:', targetUrl);
     try {
-      const response = await fetch(`${API_BASE}/expenses/summary/${userId}`, {
+      const response = await fetch(targetUrl, {
         headers: getAuthHeaders(),
       });
       return await safeHandleResponse(response);
     } catch (error) {
-      console.error('API Error (getSummary):', error);
+      console.error('[ExpenseAPI Error] getSummary:', error);
       throw error;
     }
   },
 
   // Regjistron një shpenzim të ri
   createExpense: async (expenseData) => {
+    const targetUrl = `${API_BASE}/expenses`;
+    console.log('[ExpenseAPI] POST Expense te:', targetUrl);
     try {
-      const response = await fetch(`${API_BASE}/expenses`, {
+      const response = await fetch(targetUrl, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify(expenseData),
       });
       return await safeHandleResponse(response);
     } catch (error) {
-      console.error('API Error (createExpense):', error);
+      console.error('[ExpenseAPI Error] createExpense:', error);
       throw error;
     }
   },
 
   // Përditëson një shpenzim ekzistues
   updateExpense: async (id, expenseData) => {
+    const targetUrl = `${API_BASE}/expenses/${id}`;
+    console.log('[ExpenseAPI] PUT Expense te:', targetUrl);
     try {
-      const response = await fetch(`${API_BASE}/expenses/${id}`, {
+      const response = await fetch(targetUrl, {
         method: 'PUT',
         headers: getAuthHeaders(),
         body: JSON.stringify(expenseData),
       });
       return await safeHandleResponse(response);
     } catch (error) {
-      console.error('API Error (updateExpense):', error);
+      console.error('[ExpenseAPI Error] updateExpense:', error);
       throw error;
     }
   },
 
   // Fshin një shpenzim
   deleteExpense: async (id) => {
+    const targetUrl = `${API_BASE}/expenses/${id}`;
+    console.log('[ExpenseAPI] DELETE Expense te:', targetUrl);
     try {
-      const response = await fetch(`${API_BASE}/expenses/${id}`, {
+      const response = await fetch(targetUrl, {
         method: 'DELETE',
         headers: getAuthHeaders(),
       });
       return await safeHandleResponse(response);
     } catch (error) {
-      console.error('API Error (deleteExpense):', error);
+      console.error('[ExpenseAPI Error] deleteExpense:', error);
       throw error;
     }
   },
 
   // Merr raportin e plotë mujor të barazimit për grupin (për PDF)
   getGroupReport: async (groupId = 1) => {
+    const targetUrl = `${API_BASE}/expenses/report/group/${groupId}`;
+    console.log('[ExpenseAPI] GET Report te:', targetUrl);
     try {
-      const response = await fetch(`${API_BASE}/expenses/report/group/${groupId}`, {
+      const response = await fetch(targetUrl, {
         headers: getAuthHeaders(),
       });
       return await safeHandleResponse(response);
     } catch (error) {
-      console.error('API Error (getGroupReport):', error);
+      console.error('[ExpenseAPI Error] getGroupReport:', error);
       throw error;
     }
   },

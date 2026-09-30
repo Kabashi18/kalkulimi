@@ -1,4 +1,4 @@
-// Base URL përcaktohet në mënyrë relative ('/api') për të parandaluar CORS dhe probleme me porte
+// Përcaktojmë API Base URL: nëse ka VITE_API_URL përdoret ajo, përndryshe përdoret rruga relative '/api'
 const API_BASE = import.meta.env.VITE_API_URL 
   ? import.meta.env.VITE_API_URL.replace(/\/$/, '') 
   : '/api';
@@ -26,8 +26,7 @@ export const authStorage = {
 };
 
 /**
- * Ndihmës i sigurt për të analizuar përgjigjen e serverit pa shkaktuar
- * gabimin "Unexpected end of JSON input" në rast të përgjigjeve të zbrazëta ose HTML
+ * Ndihmës i sigurt për të lexuar përgjigjen pa gabime të JSON syntax
  */
 const safeParseResponse = async (response) => {
   const text = await response.text();
@@ -37,8 +36,7 @@ const safeParseResponse = async (response) => {
     try {
       data = JSON.parse(text);
     } catch {
-      // Nëse serveri ktheu HTML ose gabim të pastër në text
-      data = { message: text.length < 200 ? text : `Gabim në server (Status ${response.status})` };
+      data = { message: text.length < 200 ? text : `Përgjigje jo-JSON nga serveri (${response.status})` };
     }
   } else {
     data = { message: response.ok ? 'Sukses' : `Serveri ktheu përgjigje të zbrazët (${response.status})` };
@@ -54,8 +52,11 @@ const safeParseResponse = async (response) => {
 export const authApi = {
   // 1. Regjistrimi
   register: async ({ name, email, password, group_id = 1 }) => {
+    const targetUrl = `${API_BASE}/auth/register`;
+    console.log('[AuthAPI] Dërgimi i kërkesës Register te:', targetUrl);
+
     try {
-      const response = await fetch(`${API_BASE}/auth/register`, {
+      const response = await fetch(targetUrl, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -65,15 +66,18 @@ export const authApi = {
       });
       return await safeParseResponse(response);
     } catch (error) {
-      console.error('API Error (register):', error);
+      console.error('[AuthAPI Error] Register:', error);
       throw error;
     }
   },
 
   // 2. Kyçja (Login)
   login: async ({ email, password }) => {
+    const targetUrl = `${API_BASE}/auth/login`;
+    console.log('[AuthAPI] Dërgimi i kërkesës Login te:', targetUrl);
+
     try {
-      const response = await fetch(`${API_BASE}/auth/login`, {
+      const response = await fetch(targetUrl, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -83,18 +87,19 @@ export const authApi = {
       });
       return await safeParseResponse(response);
     } catch (error) {
-      console.error('API Error (login):', error);
+      console.error('[AuthAPI Error] Login:', error);
       throw error;
     }
   },
 
-  // 3. Verifiko token-in dhe merr të dhënat e përdoruesit
+  // 3. Verifiko token-in
   getMe: async () => {
     const token = authStorage.getToken();
     if (!token) return null;
 
+    const targetUrl = `${API_BASE}/auth/me`;
     try {
-      const response = await fetch(`${API_BASE}/auth/me`, {
+      const response = await fetch(targetUrl, {
         headers: { 
           'Authorization': `Bearer ${token}`,
           'Accept': 'application/json'
@@ -106,7 +111,8 @@ export const authApi = {
       }
       const data = await safeParseResponse(response);
       return data.user;
-    } catch {
+    } catch (error) {
+      console.error('[AuthAPI Error] getMe:', error);
       return null;
     }
   }
