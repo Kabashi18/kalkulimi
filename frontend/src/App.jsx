@@ -70,22 +70,12 @@ export default function App() {
   const isAuthenticated = !!(currentUser && authToken);
 
   return (
-    <div className="min-h-screen bg-slate-900 flex justify-center items-center p-0 sm:p-4">
-      {/* Kontejneri me pamje mobile (Mobile Mockup Container) */}
-      <div className="w-full max-w-md h-screen sm:h-[844px] bg-slate-50 sm:rounded-[40px] shadow-2xl overflow-hidden flex flex-col relative sm:border-[8px] sm:border-slate-800">
+    <div className="min-h-screen bg-slate-100/80 flex justify-center items-start sm:py-8 sm:px-4 text-slate-900 antialiased selection:bg-indigo-500 selection:text-white">
+      {/* Kontejneri Kryesor i Aplikacionit (Pastër, Modern & Responsive) */}
+      <div className="w-full max-w-md bg-white sm:rounded-3xl shadow-xl sm:border sm:border-slate-200/80 overflow-hidden flex flex-col min-h-screen sm:min-h-[850px] relative">
         
-        {/* Shiriti i lartë mobil (Status Bar për pamje realiste) */}
-        <div className="h-6 bg-white shrink-0 flex justify-between items-center px-6 text-[10px] font-bold text-slate-400 select-none border-b border-slate-50">
-          <span>9:41</span>
-          <div className="w-16 h-3.5 bg-slate-800 rounded-full mx-auto"></div>
-          <div className="flex items-center space-x-1">
-            <span>5G</span>
-            <span>100%</span>
-          </div>
-        </div>
-
-        {/* Ekrani Aktiv: Autentifikim apo Aplikacioni Kryesor */}
-        <main className="flex-1 overflow-hidden flex flex-col">
+        {/* Ekrani Aktiv */}
+        <main className="flex-1 flex flex-col min-h-0">
           {!isAuthenticated ? (
             authView === 'login' ? (
               <LoginScreen
