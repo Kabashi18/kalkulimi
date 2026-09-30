@@ -1,13 +1,29 @@
-import React, { useState } from 'react';
-import { Mail, Lock, Eye, EyeOff, LogIn, ArrowRight, ShieldCheck } from 'lucide-react';
-import { authApi, authStorage } from '../api/authApi';
+import React, { useState, useEffect } from 'react';
+import { Mail, Lock, Eye, EyeOff, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { authApi } from '../api/authApi';
 
-export default function LoginScreen({ onLoginSuccess, onNavigateToRegister }) {
-  const [email, setEmail] = useState('');
+export default function LoginScreen({ 
+  onLoginSuccess, 
+  onNavigateToRegister, 
+  initialEmail = '', 
+  successMessage = null 
+}) {
+  const [email, setEmail] = useState(initialEmail || '');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
+  const [successBanner, setSuccessBanner] = useState(successMessage);
+
+  // Nëse ndryshon initialEmail ose successMessage nga jashtë (p.sh. pas regjistrimit)
+  useEffect(() => {
+    if (initialEmail) {
+      setEmail(initialEmail);
+    }
+    if (successMessage) {
+      setSuccessBanner(successMessage);
+    }
+  }, [initialEmail, successMessage]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -25,15 +41,11 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToRegister }) {
         password
       });
 
-      // Ruajmë të dhënat në localStorage
-      authStorage.setToken(res.token);
-      authStorage.setUser(res.user);
-
       if (onLoginSuccess) {
         onLoginSuccess(res.user, res.token);
       }
     } catch (err) {
-      setErrorMsg(err.message || 'Email ose fjalëkalimi është i pasaktë.');
+      setErrorMsg(err.message || 'Email-i ose fjalëkalimi nuk është i saktë.');
     } finally {
       setLoading(false);
     }
@@ -44,8 +56,8 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToRegister }) {
       <div className="flex-1 flex flex-col justify-center max-w-sm w-full mx-auto">
         
         {/* Brand Header */}
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-gradient-to-tr from-indigo-600 to-indigo-500 rounded-3xl mx-auto flex items-center justify-center text-white shadow-lg shadow-indigo-500/30 mb-4">
+        <div className="text-center mb-6">
+          <div className="w-16 h-16 bg-gradient-to-tr from-indigo-600 to-indigo-500 rounded-3xl mx-auto flex items-center justify-center text-white shadow-lg shadow-indigo-500/30 mb-3">
             <ShieldCheck className="w-8 h-8" />
           </div>
           <h1 className="text-2xl font-black text-slate-800 tracking-tight">Mirësevini</h1>
@@ -53,6 +65,14 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToRegister }) {
             Kyçuni për të menaxhuar faturat dhe barazimin e banesës
           </p>
         </div>
+
+        {/* Mesazhi i Suksesit (p.sh. pas krijimit të llogarisë) */}
+        {successBanner && (
+          <div className="p-3.5 mb-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl text-xs font-semibold flex items-start space-x-2.5 animate-in fade-in zoom-in-95 duration-150">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+            <span className="leading-snug">{successBanner}</span>
+          </div>
+        )}
 
         {/* Mesazhi i gabimit */}
         {errorMsg && (
@@ -72,8 +92,12 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToRegister }) {
               <input
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setErrorMsg(null);
+                }}
                 placeholder="artan@example.com"
+                required
                 className="w-full bg-white border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 rounded-2xl pl-11 pr-4 py-3 text-sm text-slate-800 outline-none transition-all shadow-sm"
               />
             </div>
@@ -88,8 +112,12 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToRegister }) {
               <input
                 type={showPassword ? 'text' : 'password'}
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  setErrorMsg(null);
+                }}
                 placeholder="••••••••"
+                required
                 className="w-full bg-white border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 rounded-2xl pl-11 pr-11 py-3 text-sm text-slate-800 outline-none transition-all shadow-sm"
               />
               <button
@@ -102,35 +130,32 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToRegister }) {
             </div>
           </div>
 
+          {/* Butoni i Kyçjes */}
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3.5 rounded-2xl font-bold text-sm shadow-lg shadow-indigo-500/25 flex items-center justify-center space-x-2 transition-all active:scale-[0.98] disabled:opacity-60 mt-2"
+            className="w-full mt-2 bg-indigo-600 hover:bg-indigo-700 active:scale-[0.99] text-white font-bold py-3 rounded-2xl shadow-lg shadow-indigo-500/25 text-sm transition-all flex items-center justify-center space-x-2"
           >
             {loading ? (
               <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
             ) : (
-              <>
-                <LogIn className="w-4 h-4" />
-                <span>Kyçu në Llogari</span>
-              </>
+              <span>Kyçu në Llogari</span>
             )}
           </button>
         </form>
-      </div>
 
-      {/* Footer Switch to Register */}
-      <div className="text-center pt-4 border-t border-slate-200/60">
-        <p className="text-xs text-slate-500">
-          Nuk keni llogari ende?{' '}
-          <button
-            onClick={onNavigateToRegister}
-            className="text-indigo-600 font-bold hover:underline inline-flex items-center"
-          >
-            <span>Regjistrohu këtu</span>
-            <ArrowRight className="w-3 h-3 ml-1" />
-          </button>
-        </p>
+        {/* Lidhja për Regjistrim */}
+        <div className="text-center mt-6">
+          <p className="text-xs text-slate-500">
+            Nuk keni ende një llogari?{' '}
+            <button
+              onClick={onNavigateToRegister}
+              className="text-indigo-600 font-bold hover:underline"
+            >
+              Krijo llogari të re
+            </button>
+          </p>
+        </div>
       </div>
     </div>
   );

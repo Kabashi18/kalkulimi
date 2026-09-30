@@ -6,22 +6,24 @@ import RegisterScreen from './screens/RegisterScreen';
 import { authStorage } from './api/authApi';
 
 export default function App() {
-  // Gjendja e autentifikimit nga localStorage
+  // Gjendja e autentifikimit nga sesioni aktiv
   const [currentUser, setCurrentUser] = useState(() => authStorage.getUser());
   const [authToken, setAuthToken] = useState(() => authStorage.getToken());
 
-  // Gjendja e ekranit aktual
+  // Gjendja e navigimit dhe pamjes
   const [currentScreen, setCurrentScreen] = useState('dashboard');
   const [authView, setAuthView] = useState('login'); // 'login' ose 'register'
+  const [registrationNotice, setRegistrationNotice] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [expenseToEdit, setExpenseToEdit] = useState(null);
 
-  // Dëgjo për rastet kur tokeni skadon ose refuzohet nga serveri (401)
+  // Dëgjuesi për rastet e skadimit të autorizimit
   useEffect(() => {
     const handleUnauthorized = () => {
       authStorage.clear();
       setCurrentUser(null);
       setAuthToken(null);
+      setRegistrationNotice(null);
       setAuthView('login');
     };
 
@@ -29,20 +31,31 @@ export default function App() {
     return () => window.removeEventListener('auth:unauthorized', handleUnauthorized);
   }, []);
 
-  // Trajtimi i kyçjes / regjistrimit me sukses
+  // Trajtimi i kyçjes me sukses
   const handleAuthSuccess = (user, token) => {
     setCurrentUser(user);
     setAuthToken(token);
+    setRegistrationNotice(null);
     setCurrentScreen('dashboard');
     setRefreshKey((prev) => prev + 1);
   };
 
-  // Trajtimi i daljes (Logout)
+  // Trajtimi i regjistrimit me sukses (Ridrejton te Login me email të plotësuar dhe mesazh suksesi)
+  const handleRegisterSuccess = ({ email, message }) => {
+    setRegistrationNotice({
+      email,
+      message: message || 'Llogaria u krijua me sukses! Ju lutem kyçuni me fjalëkalimin tuaj.'
+    });
+    setAuthView('login');
+  };
+
+  // Trajtimi i daljes (Logout) - Fshin vetëm sesionin aktual, ruan të gjithë përdoruesit në 'app_users'
   const handleLogout = () => {
     authStorage.clear();
     setCurrentUser(null);
     setAuthToken(null);
     setExpenseToEdit(null);
+    setRegistrationNotice(null);
     setAuthView('login');
   };
 
@@ -71,21 +84,27 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-100/80 flex justify-center items-start sm:py-8 sm:px-4 text-slate-900 antialiased selection:bg-indigo-500 selection:text-white">
-      {/* Kontejneri Kryesor i Aplikacionit (Pastër, Modern & Responsive) */}
+      {/* Kontejneri Kryesor Responsive */}
       <div className="w-full max-w-md bg-white sm:rounded-3xl shadow-xl sm:border sm:border-slate-200/80 overflow-hidden flex flex-col min-h-screen sm:min-h-[850px] relative">
-        
-        {/* Ekrani Aktiv */}
         <main className="flex-1 flex flex-col min-h-0">
           {!isAuthenticated ? (
             authView === 'login' ? (
               <LoginScreen
                 onLoginSuccess={handleAuthSuccess}
-                onNavigateToRegister={() => setAuthView('register')}
+                onNavigateToRegister={() => {
+                  setRegistrationNotice(null);
+                  setAuthView('register');
+                }}
+                initialEmail={registrationNotice?.email || ''}
+                successMessage={registrationNotice?.message || null}
               />
             ) : (
               <RegisterScreen
-                onRegisterSuccess={handleAuthSuccess}
-                onNavigateToLogin={() => setAuthView('login')}
+                onRegisterSuccess={handleRegisterSuccess}
+                onNavigateToLogin={() => {
+                  setRegistrationNotice(null);
+                  setAuthView('login');
+                }}
               />
             )
           ) : currentScreen === 'dashboard' ? (

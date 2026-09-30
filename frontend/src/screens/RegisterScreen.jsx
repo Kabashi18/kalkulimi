@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { User, Mail, Lock, Eye, EyeOff, UserPlus, ArrowLeft, Home } from 'lucide-react';
-import { authApi, authStorage } from '../api/authApi';
+import { User, Mail, Lock, Eye, EyeOff, UserPlus, ArrowLeft } from 'lucide-react';
+import { authApi } from '../api/authApi';
 
 export default function RegisterScreen({ onRegisterSuccess, onNavigateToLogin }) {
   const [name, setName] = useState('');
@@ -15,7 +15,7 @@ export default function RegisterScreen({ onRegisterSuccess, onNavigateToLogin })
     setErrorMsg(null);
 
     if (!name.trim()) {
-      setErrorMsg('Ju lutem vendosni emrin tuaj të plotë.');
+      setErrorMsg('Ju lutem vendosni emrin dhe mbiemrin tuaj.');
       return;
     }
 
@@ -35,15 +35,15 @@ export default function RegisterScreen({ onRegisterSuccess, onNavigateToLogin })
         name: name.trim(),
         email: email.trim(),
         password,
-        group_id: 1 // Lidhet automatikisht me banesën kryesore
+        group_id: 1 // Lidhet me grupin e banesës
       });
 
-      // Ruajmë në localStorage
-      authStorage.setToken(res.token);
-      authStorage.setUser(res.user);
-
+      // Nuk e kyçim automatikisht, por e dërgojmë te Login me email-in e plotësuar dhe mesazh suksesi
       if (onRegisterSuccess) {
-        onRegisterSuccess(res.user, res.token);
+        onRegisterSuccess({
+          email: email.trim(),
+          message: res.message || 'Llogaria u krijua me sukses! Ju lutem kyçuni me fjalëkalimin tuaj.'
+        });
       }
     } catch (err) {
       setErrorMsg(err.message || 'Dështoi regjistrimi i llogarisë.');
@@ -88,6 +88,7 @@ export default function RegisterScreen({ onRegisterSuccess, onNavigateToLogin })
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="psh. Artan Berisha"
+                required
                 className="w-full bg-white border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 rounded-2xl pl-11 pr-4 py-2.5 text-sm text-slate-800 outline-none transition-all shadow-sm"
               />
             </div>
@@ -105,6 +106,7 @@ export default function RegisterScreen({ onRegisterSuccess, onNavigateToLogin })
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="artan@example.com"
+                required
                 className="w-full bg-white border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 rounded-2xl pl-11 pr-4 py-2.5 text-sm text-slate-800 outline-none transition-all shadow-sm"
               />
             </div>
@@ -113,7 +115,7 @@ export default function RegisterScreen({ onRegisterSuccess, onNavigateToLogin })
           {/* Fjalëkalimi */}
           <div>
             <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
-              Fjalëkalimi (min. 6 karaktere)
+              Fjalëkalimi
             </label>
             <div className="relative">
               <Lock className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
@@ -121,7 +123,8 @@ export default function RegisterScreen({ onRegisterSuccess, onNavigateToLogin })
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
+                placeholder="Së paku 6 karaktere"
+                required
                 className="w-full bg-white border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 rounded-2xl pl-11 pr-11 py-2.5 text-sm text-slate-800 outline-none transition-all shadow-sm"
               />
               <button
@@ -134,43 +137,32 @@ export default function RegisterScreen({ onRegisterSuccess, onNavigateToLogin })
             </div>
           </div>
 
-          {/* Grupi / Banesa */}
-          <div className="bg-indigo-50/60 border border-indigo-100 rounded-2xl p-3 flex items-center space-x-2.5 text-xs text-indigo-900">
-            <Home className="w-4 h-4 text-indigo-600 shrink-0" />
-            <div>
-              <span className="font-bold">Banesa në Qendër</span>
-              <p className="text-[10px] text-indigo-600">Do të lidheni automatikisht me shokët e kësaj banese.</p>
-            </div>
-          </div>
-
+          {/* Butoni i Regjistrimit */}
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3.5 rounded-2xl font-bold text-sm shadow-lg shadow-indigo-500/25 flex items-center justify-center space-x-2 transition-all active:scale-[0.98] disabled:opacity-60 mt-2"
+            className="w-full mt-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 active:scale-[0.99] text-white font-bold py-3 rounded-2xl shadow-lg shadow-indigo-500/20 text-sm transition-all flex items-center justify-center space-x-2"
           >
             {loading ? (
               <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
             ) : (
-              <>
-                <UserPlus className="w-4 h-4" />
-                <span>Krijo Llogarinë</span>
-              </>
+              <span>Krijo Llogarinë</span>
             )}
           </button>
         </form>
-      </div>
 
-      {/* Footer Switch to Login */}
-      <div className="text-center pt-4 border-t border-slate-200/60">
-        <p className="text-xs text-slate-500">
-          Keni tashmë një llogari?{' '}
-          <button
-            onClick={onNavigateToLogin}
-            className="text-indigo-600 font-bold hover:underline inline-flex items-center"
-          >
-            <span>Kyçuni këtu</span>
-          </button>
-        </p>
+        {/* Ridrejtimi te Login */}
+        <div className="text-center mt-5">
+          <p className="text-xs text-slate-500">
+            Keni tashmë një llogari?{' '}
+            <button
+              onClick={onNavigateToLogin}
+              className="text-indigo-600 font-bold hover:underline"
+            >
+              Kyçu këtu
+            </button>
+          </p>
+        </div>
       </div>
     </div>
   );

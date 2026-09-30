@@ -2,11 +2,10 @@
 // EXPENSE ENGINE ME CLIENT-SIDE LOCALSTORAGE (100% E PAVARUR NGA SERVERI)
 // ==============================================================================
 
-import { authStorage } from './authApi';
+import { authStorage, getAppUsers } from './authApi';
 
 const STORAGE_KEYS = {
   EXPENSES_DB: 'kalkulimi_expenses_db',
-  USERS_DB: 'kalkulimi_users_db',
 };
 
 // Shpenzimet fillestare realiste për demonstrim të menjëhershëm
@@ -100,12 +99,7 @@ const saveExpenses = (expenses) => {
 };
 
 const getAllUsers = () => {
-  try {
-    const data = localStorage.getItem(STORAGE_KEYS.USERS_DB);
-    return data ? JSON.parse(data) : [];
-  } catch {
-    return [];
-  }
+  return getAppUsers();
 };
 
 // Motori i Barazimit (Settlement Engine & Net Balance Calculation)

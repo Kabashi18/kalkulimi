@@ -1,14 +1,14 @@
 // ==============================================================================
-// AUTHENTICATION ENGINE ME CLIENT-SIDE LOCALSTORAGE (100% E PAVARUR NGA SERVERI)
+// AUTHENTICATION ENGINE ME CLIENT-SIDE LOCALSTORAGE (PERSISTENT USERS)
 // ==============================================================================
 
 const STORAGE_KEYS = {
   TOKEN: 'kalkulimi_auth_token',
   CURRENT_USER: 'kalkulimi_auth_user',
-  USERS_DB: 'kalkulimi_users_db',
+  USERS_DB: 'app_users', // Çelësi kryesor permanent për ruajtjen e përdoruesve
 };
 
-// Përdoruesit fillestarë demo (të parangarkuar)
+// Përdoruesit fillestarë demo (të parangarkuar nëse nuk ekziston lista në browser)
 const DEFAULT_USERS = [
   {
     id: 1,
@@ -16,7 +16,8 @@ const DEFAULT_USERS = [
     email: 'artan@example.com',
     password: 'password123',
     group_id: 1,
-    group_name: 'Banesa Jonë'
+    group_name: 'Banesa Jonë',
+    created_at: new Date().toISOString()
   },
   {
     id: 2,
@@ -24,7 +25,8 @@ const DEFAULT_USERS = [
     email: 'blerta@example.com',
     password: 'password123',
     group_id: 1,
-    group_name: 'Banesa Jonë'
+    group_name: 'Banesa Jonë',
+    created_at: new Date().toISOString()
   },
   {
     id: 3,
@@ -32,42 +34,38 @@ const DEFAULT_USERS = [
     email: 'dardan@example.com',
     password: 'password123',
     group_id: 1,
-    group_name: 'Banesa Jonë'
+    group_name: 'Banesa Jonë',
+    created_at: new Date().toISOString()
   }
 ];
 
-// Inicializimi i bazës së të dhënave të përdoruesve në localStorage
-const initUsersDb = () => {
+// Leximi i sigurt i listës 'app_users' nga LocalStorage
+export const getAppUsers = () => {
   try {
-    const existing = localStorage.getItem(STORAGE_KEYS.USERS_DB);
-    if (!existing) {
+    const raw = localStorage.getItem(STORAGE_KEYS.USERS_DB) || localStorage.getItem('kalkulimi_users_db');
+    if (!raw) {
       localStorage.setItem(STORAGE_KEYS.USERS_DB, JSON.stringify(DEFAULT_USERS));
       return DEFAULT_USERS;
     }
-    return JSON.parse(existing);
-  } catch {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : DEFAULT_USERS;
+  } catch (err) {
+    console.error('Gabim gjatë leximit të app_users:', err);
     return DEFAULT_USERS;
   }
 };
 
-const getUsers = () => {
+// Ruajtja permanente e listës së përdoruesve në LocalStorage
+export const saveAppUsers = (usersList) => {
   try {
-    const data = localStorage.getItem(STORAGE_KEYS.USERS_DB);
-    return data ? JSON.parse(data) : initUsersDb();
-  } catch {
-    return DEFAULT_USERS;
+    localStorage.setItem(STORAGE_KEYS.USERS_DB, JSON.stringify(usersList));
+    localStorage.setItem('kalkulimi_users_db', JSON.stringify(usersList)); // sinkronizim për siguri
+  } catch (err) {
+    console.error('Gabim gjatë ruajtjes së app_users:', err);
   }
 };
 
-const saveUsers = (users) => {
-  try {
-    localStorage.setItem(STORAGE_KEYS.USERS_DB, JSON.stringify(users));
-  } catch (e) {
-    console.error('Gabim gjatë ruajtjes së përdoruesve:', e);
-  }
-};
-
-// Menaxhimi i token-it dhe përdoruesit aktiv në session
+// Menaxhimi i sesionit të përdoruesit aktiv (Token & Current User)
 export const authStorage = {
   getToken: () => localStorage.getItem(STORAGE_KEYS.TOKEN),
   setToken: (token) => localStorage.setItem(STORAGE_KEYS.TOKEN, token),
@@ -84,9 +82,12 @@ export const authStorage = {
   setUser: (user) => localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(user)),
   removeUser: () => localStorage.removeItem(STORAGE_KEYS.CURRENT_USER),
 
+  // Fshin VETËM sesionin aktiv gjatë Logout, duke ruajtur paprekur listën 'app_users'
   clear: () => {
     localStorage.removeItem(STORAGE_KEYS.TOKEN);
     localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('auth_user');
   }
 };
 
@@ -94,90 +95,104 @@ export const authStorage = {
 export const authApi = {
   // 1. Regjistrimi i një përdoruesi të ri
   register: async ({ name, email, password, group_name, group_id = 1 }) => {
-    // Simulim i shpejtë i vonesës së rrjetit (150ms)
-    await new Promise((resolve) => setTimeout(resolve, 150));
+    await new Promise((resolve) => setTimeout(resolve, 120));
 
-    if (!name || !email || !password) {
-      throw new Error('Ju lutem plotësoni emrin, email-in dhe fjalëkalimin.');
+    if (!name || !name.trim()) {
+      throw new Error('Ju lutem vendosni emrin dhe mbiemrin tuaj.');
     }
 
-    if (password.length < 6) {
+    if (!email || !email.trim()) {
+      throw new Error('Ju lutem vendosni email-in.');
+    }
+
+    if (!password || password.length < 6) {
       throw new Error('Fjalëkalimi duhet të ketë të paktën 6 karaktere.');
     }
 
     const normalizedEmail = email.trim().toLowerCase();
-    const users = getUsers();
+    const currentUsers = getAppUsers();
 
-    const exists = users.find((u) => u.email.toLowerCase() === normalizedEmail);
-    if (exists) {
-      throw new Error('Ky email tashmë është i regjistruar në sistem.');
+    // Kontrolli nëse ekziston tashmë përdoruesi me këtë email
+    const alreadyExists = currentUsers.some(
+      (u) => u.email && u.email.trim().toLowerCase() === normalizedEmail
+    );
+
+    if (alreadyExists) {
+      throw new Error('Ky email është i regjistruar tashmë!');
     }
 
-    const newId = users.length > 0 ? Math.max(...users.map((u) => u.id || 0)) + 1 : 1;
+    // Gjenerimi i ID-së së re unike
+    const nextId = currentUsers.length > 0 
+      ? Math.max(...currentUsers.map((u) => Number(u.id) || 0)) + 1 
+      : 1;
+
     const finalGroupName = group_name && group_name.trim() ? group_name.trim() : 'Banesa Jonë';
 
     const newUser = {
-      id: newId,
+      id: nextId,
       name: name.trim(),
       email: normalizedEmail,
-      password: password,
+      password: password, // ruhet për krahasim në login
       group_id: Number(group_id) || 1,
       group_name: finalGroupName,
       created_at: new Date().toISOString()
     };
 
-    users.push(newUser);
-    saveUsers(users);
+    // Shtohet në listën e përdoruesve dhe ruhet në LocalStorage
+    const updatedUsers = [...currentUsers, newUser];
+    saveAppUsers(updatedUsers);
 
-    const fakeToken = `jwt_mock_token_${newUser.id}_${Date.now()}`;
-    authStorage.setToken(fakeToken);
-    authStorage.setUser(newUser);
-
+    // Kthehet përgjigja pa e kyçur automatikisht
     return {
       success: true,
-      message: 'Regjistrimi u krye me sukses!',
-      token: fakeToken,
+      message: 'Llogaria u krijua me sukses! Ju lutem kyçuni me fjalëkalimin tuaj.',
       user: newUser
     };
   },
 
   // 2. Kyçja e përdoruesit ekzistues (Login)
   login: async ({ email, password }) => {
-    await new Promise((resolve) => setTimeout(resolve, 150));
+    await new Promise((resolve) => setTimeout(resolve, 120));
 
-    if (!email || !password) {
+    if (!email || !email.trim() || !password) {
       throw new Error('Ju lutem shkruani email-in dhe fjalëkalimin.');
     }
 
     const normalizedEmail = email.trim().toLowerCase();
-    const users = getUsers();
+    const currentUsers = getAppUsers();
 
-    const user = users.find((u) => u.email.toLowerCase() === normalizedEmail);
+    // Kërkohet përdoruesi sipas email-it dhe fjalëkalimit
+    const user = currentUsers.find(
+      (u) => u.email && u.email.trim().toLowerCase() === normalizedEmail
+    );
+
     if (!user) {
       throw new Error('Email-i ose fjalëkalimi nuk është i saktë.');
     }
 
-    if (user.password && user.password !== password && password !== 'password123') {
+    // Verifikimi i fjalëkalimit
+    const isPasswordValid = user.password === password || password === 'password123';
+    if (!isPasswordValid) {
       throw new Error('Email-i ose fjalëkalimi nuk është i saktë.');
     }
 
-    const fakeToken = `jwt_mock_token_${user.id}_${Date.now()}`;
-    authStorage.setToken(fakeToken);
+    // Gjenerimi i Token-it dhe ruajtja e sesionit aktiv
+    const token = `jwt_session_token_${user.id}_${Date.now()}`;
+    authStorage.setToken(token);
     authStorage.setUser(user);
 
     return {
       success: true,
       message: 'U kyçët me sukses!',
-      token: fakeToken,
+      token,
       user
     };
   },
 
-  // 3. Verifikimi i përdoruesit aktiv
+  // 3. Verifikimi i sesionit aktiv
   getMe: async () => {
     const token = authStorage.getToken();
     if (!token) return null;
-    const user = authStorage.getUser();
-    return user || null;
+    return authStorage.getUser() || null;
   }
 };
