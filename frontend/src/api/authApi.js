@@ -1,4 +1,7 @@
-const BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:5000/api');
+// Base URL përcaktohet në mënyrë relative ('/api') për të parandaluar CORS dhe probleme me porte
+const API_BASE = import.meta.env.VITE_API_URL 
+  ? import.meta.env.VITE_API_URL.replace(/\/$/, '') 
+  : '/api';
 
 export const authStorage = {
   getToken: () => localStorage.getItem('auth_token'),
@@ -22,20 +25,45 @@ export const authStorage = {
   }
 };
 
+/**
+ * Ndihmës i sigurt për të analizuar përgjigjen e serverit pa shkaktuar
+ * gabimin "Unexpected end of JSON input" në rast të përgjigjeve të zbrazëta ose HTML
+ */
+const safeParseResponse = async (response) => {
+  const text = await response.text();
+  let data = {};
+
+  if (text && text.trim().length > 0) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      // Nëse serveri ktheu HTML ose gabim të pastër në text
+      data = { message: text.length < 200 ? text : `Gabim në server (Status ${response.status})` };
+    }
+  } else {
+    data = { message: response.ok ? 'Sukses' : `Serveri ktheu përgjigje të zbrazët (${response.status})` };
+  }
+
+  if (!response.ok) {
+    throw new Error(data.message || `Kërkesa dështoi me statusin ${response.status}`);
+  }
+
+  return data;
+};
+
 export const authApi = {
   // 1. Regjistrimi
   register: async ({ name, email, password, group_id = 1 }) => {
     try {
-      const response = await fetch(`${BASE_URL}/auth/register`, {
+      const response = await fetch(`${API_BASE}/auth/register`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
         body: JSON.stringify({ name, email, password, group_id }),
       });
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.message || 'Dështoi regjistrimi');
-      }
-      return data;
+      return await safeParseResponse(response);
     } catch (error) {
       console.error('API Error (register):', error);
       throw error;
@@ -45,16 +73,15 @@ export const authApi = {
   // 2. Kyçja (Login)
   login: async ({ email, password }) => {
     try {
-      const response = await fetch(`${BASE_URL}/auth/login`, {
+      const response = await fetch(`${API_BASE}/auth/login`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
         body: JSON.stringify({ email, password }),
       });
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.message || 'Dështoi kyçja');
-      }
-      return data;
+      return await safeParseResponse(response);
     } catch (error) {
       console.error('API Error (login):', error);
       throw error;
@@ -67,14 +94,17 @@ export const authApi = {
     if (!token) return null;
 
     try {
-      const response = await fetch(`${BASE_URL}/auth/me`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+      const response = await fetch(`${API_BASE}/auth/me`, {
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json'
+        }
       });
       if (response.status === 401) {
         authStorage.clear();
         return null;
       }
-      const data = await response.json();
+      const data = await safeParseResponse(response);
       return data.user;
     } catch {
       return null;
