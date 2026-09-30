@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 require('dotenv').config();
 
 // Importimi i lidhjes me databazën dhe rrugëve
@@ -14,51 +15,62 @@ const PORT = process.env.PORT || 5000;
 // ============================================================================
 // MIDDLEWARES
 // ============================================================================
-app.use(cors());
+app.use(cors({
+    origin: '*',
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // ============================================================================
-// ROUTING (Endpoint-et e Aplikacionit)
+// ROUTING (Endpoint-et e Backend API)
 // ============================================================================
 
-// Endpoint bazik testues për të kontrolluar statusin e serverit
-app.get('/', (req, res) => {
-    res.json({
-        message: 'Mirësevini në API-në e Menaxhimit të Shpenzimeve (Expense Manager API me JWT Auth)',
-        status: 'online',
-        endpoints: {
-            auth: {
-                register: 'POST /api/auth/register',
-                login:    'POST /api/auth/login',
-                me:       'GET  /api/auth/me (Protected)'
-            },
-            expenses: {
-                getAllAndSummary: 'GET    /api/expenses/summary/:userId (Protected)',
-                getGroupReport:   'GET    /api/expenses/report/group/:groupId (Protected)',
-                createExpense:    'POST   /api/expenses (Protected)',
-                updateExpense:    'PUT    /api/expenses/:id (Protected)',
-                deleteExpense:    'DELETE /api/expenses/:id (Protected)'
-            }
-        }
-    });
-});
-
-// 1. Rrugët e Autentifikimit (Publike & Protected me /me)
+// 1. Rrugët e Autentifikimit (Register, Login, Me)
 app.use('/api/auth', authRoutes);
 
 // 2. Rrugët e Shpenzimeve (Të mbrojtura me JWT Token)
 app.use('/api', expenseRoutes);
 
+// Endpoint testues për statusin e API
+app.get('/api/health', (req, res) => {
+    res.json({
+        message: 'Kalkulimi API është funksionale dhe online',
+        status: 'healthy',
+        timestamp: new Date().toISOString()
+    });
+});
+
 // ============================================================================
-// ERROR HANDLING (Trajtimi i gabimeve)
+// SERVING FRONTEND (React SPA Production Build)
+// ============================================================================
+const distPath = path.join(__dirname, 'frontend', 'dist');
+app.use(express.static(distPath));
+
+// Për çdo rrugë që nuk është API, dërgo index.html të React-it (SPA Router)
+app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api')) {
+        return next();
+    }
+    const indexPath = path.join(distPath, 'index.html');
+    res.sendFile(indexPath, (err) => {
+        if (err) {
+            next();
+        }
+    });
+});
+
+// ============================================================================
+// ERROR HANDLING (Trajtimi i gabimeve për API)
 // ============================================================================
 
-// Trajtimi i rrugëve që nuk ekzistojnë (404)
-app.use((req, res) => {
+// Trajtimi i rrugëve API që nuk ekzistojnë (404)
+app.use('/api/*', (req, res) => {
     res.status(404).json({
         success: false,
-        message: `Rruga [${req.method}] ${req.originalUrl} nuk u gjet në server.`
+        message: `Rruga API [${req.method}] ${req.originalUrl} nuk u gjet në server.`
     });
 });
 
@@ -79,16 +91,7 @@ if (require.main === module) {
     app.listen(PORT, () => {
         console.log(`====================================================`);
         console.log(`🚀 Serveri po funksionon në: http://localhost:${PORT}`);
-        console.log(`🔐 Autentifikimi (Auth):`);
-        console.log(`   POST   http://localhost:${PORT}/api/auth/register`);
-        console.log(`   POST   http://localhost:${PORT}/api/auth/login`);
-        console.log(`   GET    http://localhost:${PORT}/api/auth/me`);
-        console.log(`📌 Shpenzimet (Të mbrojtura me JWT):`);
-        console.log(`   POST   http://localhost:${PORT}/api/expenses`);
-        console.log(`   GET    http://localhost:${PORT}/api/expenses/summary/:userId`);
-        console.log(`   GET    http://localhost:${PORT}/api/expenses/report/group/:groupId`);
-        console.log(`   PUT    http://localhost:${PORT}/api/expenses/:id`);
-        console.log(`   DELETE http://localhost:${PORT}/api/expenses/:id`);
+        console.log(`📱 Frontend & API janë gati.`);
         console.log(`====================================================`);
     });
 }
