@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Plus, RotateCw, AlertTriangle, Receipt, CheckCircle, LogOut, Copy, Check, Users, Share2, DoorOpen } from 'lucide-react';
+import { Plus, RotateCw, AlertTriangle, Receipt, CheckCircle, LogOut, Copy, Check, Users, Share2, DoorOpen, UserPlus } from 'lucide-react';
 import SummaryCard from '../components/SummaryCard';
 import BalanceSettlement from '../components/BalanceSettlement';
 import ExpenseItem from '../components/ExpenseItem';
@@ -96,7 +96,16 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
   };
 
   const handleLeave = async () => {
-    if (!window.confirm(`Je i sigurt që do të largohesh nga "${household.name}"? Shpenzimet dhe borxhet mbeten te banesa.`)) return;
+    // Kontroll i shpejtë në UI; databaza e zbaton rregullin gjithsesi (leave_household)
+    const openDebts = data?.summary?.settlementBalance?.breakdown || [];
+    if (openDebts.length > 0) {
+      const list = openDebts
+        .map((d) => (d.type === 'user_owes' ? `• Ti i ke borxh ${d.name}: ${d.amount.toFixed(2)} €` : `• ${d.name} të ka borxh: ${d.amount.toFixed(2)} €`))
+        .join('\n');
+      alert(`Nuk mund të largohesh pa i larë më parë borxhet:\n\n${list}\n\nPërdor "Laje Borxhin" / "Shëno të marrë" te kartela e borxheve.`);
+      return;
+    }
+    if (!window.confirm(`Je i sigurt që do të largohesh nga "${household.name}"? Shpenzimet mbeten te banesa.`)) return;
     try {
       await householdApi.leaveHousehold();
       onLeftHousehold?.();
@@ -244,6 +253,38 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
             <div>
               <p className="font-semibold mb-0.5">Vërejtje për Lidhjen</p>
               <p className="text-amber-700 leading-relaxed">{error}</p>
+            </div>
+          </div>
+        )}
+
+        {/* 0. Kartela e ftesës: shfaqet kur je ende i vetëm në banesë */}
+        {!loading && members.length === 1 && (
+          <div className="mb-4 p-5 rounded-3xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/20">
+            <div className="flex items-center space-x-2 mb-1">
+              <UserPlus className="w-5 h-5" />
+              <h3 className="text-sm font-black">Fto shokët e banesës</h3>
+            </div>
+            <p className="text-xs text-emerald-50 mb-3 leading-relaxed">
+              Je i vetëm në "{household.name}". Dërgoju shokëve këtë kod: ata regjistrohen dhe e shkruajnë për t'u bashkuar.
+            </p>
+            <div className="flex items-center space-x-2">
+              <div className="flex-1 bg-white/15 border border-white/30 rounded-xl px-3 py-2.5 text-base font-black tracking-widest text-center">
+                {household.code}
+              </div>
+              <button
+                onClick={handleCopyCode}
+                className="w-11 h-11 rounded-xl bg-white/15 border border-white/30 flex items-center justify-center hover:bg-white/25 cursor-pointer"
+                title="Kopjo kodin"
+              >
+                {copied ? <Check className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
+              </button>
+              <button
+                onClick={handleShareCode}
+                className="h-11 px-4 rounded-xl bg-white text-emerald-700 font-bold text-xs flex items-center space-x-1.5 hover:bg-emerald-50 cursor-pointer"
+              >
+                <Share2 className="w-4 h-4" />
+                <span>Dërgo</span>
+              </button>
             </div>
           </div>
         )}

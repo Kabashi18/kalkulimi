@@ -50,6 +50,15 @@ export default function DashboardScreen({ user, household, onNavigateToAdd, onNa
   };
 
   const handleLeave = () => {
+    // Kontroll i shpejtë në UI; databaza e zbaton rregullin gjithsesi (leave_household)
+    const openDebts = data?.summary?.settlementBalance?.breakdown || [];
+    if (openDebts.length > 0) {
+      const list = openDebts
+        .map((d) => (d.type === 'user_owes' ? `• Ti i ke borxh ${d.name}: ${d.amount.toFixed(2)} €` : `• ${d.name} të ka borxh: ${d.amount.toFixed(2)} €`))
+        .join('\n');
+      Alert.alert('Ka borxhe të pashlyera', `Nuk mund të largohesh pa i larë më parë borxhet:\n\n${list}`);
+      return;
+    }
     Alert.alert('Largohu nga banesa', `Je i sigurt që do të largohesh nga "${household.name}"?`, [
       { text: 'Anulo', style: 'cancel' },
       {
@@ -169,6 +178,26 @@ export default function DashboardScreen({ user, household, onNavigateToAdd, onNa
                 <View className="p-3 mb-4 bg-amber-50 border border-amber-200 rounded-xl flex-row items-center">
                   <Ionicons name="warning-outline" size={18} color="#d97706" />
                   <Text className="text-amber-800 text-xs ml-2 flex-1">{error}</Text>
+                </View>
+              )}
+              {members.length === 1 && (
+                <View className="mb-4 p-5 rounded-3xl bg-emerald-600">
+                  <View className="flex-row items-center mb-1">
+                    <Ionicons name="person-add" size={18} color="#fff" />
+                    <Text className="text-white text-sm font-black ml-2">Fto shokët e banesës</Text>
+                  </View>
+                  <Text className="text-emerald-50 text-xs mb-3">
+                    Je i vetëm në "{household.name}". Dërgoju shokëve këtë kod për t'u bashkuar.
+                  </Text>
+                  <View className="flex-row items-center">
+                    <Text selectable className="flex-1 bg-emerald-500 border border-emerald-400 rounded-xl py-2.5 text-center text-base font-black tracking-widest text-white">
+                      {household.code}
+                    </Text>
+                    <TouchableOpacity onPress={handleShareCode} className="ml-2 h-11 px-4 rounded-xl bg-white flex-row items-center">
+                      <Ionicons name="share-social" size={16} color="#047857" />
+                      <Text className="text-emerald-700 font-bold text-xs ml-1.5">Dërgo</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               )}
               <SummaryCard monthlyTotal={data?.summary?.currentMonth?.totalPaidOutOfPocket || 0} />

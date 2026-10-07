@@ -46,6 +46,15 @@ alter table public.expenses
   add column if not exists created_by uuid references public.profiles (id) on delete set null;
 update public.expenses set created_by = paid_by where created_by is null;
 
+-- Data e shpenzimit (p.sh. fatura e shtatorit e regjistruar më 3 tetor). Të vjetrat marrin ditën e regjistrimit.
+alter table public.expenses add column if not exists expense_date date;
+update public.expenses
+  set expense_date = (created_at at time zone 'Europe/Belgrade')::date
+  where expense_date is null;
+alter table public.expenses alter column expense_date set default current_date;
+alter table public.expenses alter column expense_date set not null;
+create index if not exists expenses_household_date_idx on public.expenses (household_id, expense_date desc);
+
 -- Pjesa që i takon secilit anëtar nga një shpenzim i përbashkët
 create table if not exists public.expense_splits (
   expense_id   bigint not null references public.expenses (id) on delete cascade,
@@ -190,13 +199,53 @@ begin
 end;
 $$;
 
-create or replace function public.leave_household()
-returns void
+-- Borxhet dypalëshe të përdoruesit të kyçur (e njëjta logjikë si frontend/src/utils/balances.js)
+-- net > 0: tjetri më ka borxh mua; net < 0: unë i kam borxh tjetrit
+create or replace function public.my_balances()
+returns table (other_user uuid, net numeric)
 language sql
+stable
 security definer
 set search_path = public
 as $$
+  with me as (select auth.uid() as id, public.my_household_id() as hh),
+  flows as (
+    -- Unë pagova: të tjerët më kanë borxh pjesën e tyre
+    select s.user_id as other, s.amount_owed as amt
+    from public.expenses e
+    join public.expense_splits s on s.expense_id = e.id
+    cross join me
+    where e.household_id = me.hh and not e.is_personal and e.paid_by = me.id and s.user_id <> me.id
+    union all
+    -- Dikush tjetër pagoi: unë i kam borxh pjesën time
+    select e.paid_by, -s.amount_owed
+    from public.expenses e
+    join public.expense_splits s on s.expense_id = e.id
+    cross join me
+    where e.household_id = me.hh and not e.is_personal and e.paid_by <> me.id and s.user_id = me.id
+    union all
+    select st.to_user, st.amount from public.settlements st cross join me
+    where st.household_id = me.hh and st.from_user = me.id
+    union all
+    select st.from_user, -st.amount from public.settlements st cross join me
+    where st.household_id = me.hh and st.to_user = me.id
+  )
+  select other, sum(amt) from flows group by other having abs(sum(amt)) >= 0.01;
+$$;
+
+-- Largimi lejohet vetëm kur të gjitha borxhet janë larë (përndryshe shokët mbeten me borxhe që s'mund t'i lajnë)
+create or replace function public.leave_household()
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if exists (select 1 from public.my_balances()) then
+    raise exception 'Nuk mund të largohesh nga banesa pa i larë më parë të gjitha borxhet (bilanci duhet të jetë 0.00 € me secilin shok).';
+  end if;
   update public.profiles set household_id = null where id = auth.uid();
+end;
 $$;
 
 -- ------------------------------------------------------------------------------
@@ -205,9 +254,11 @@ $$;
 -- p_id = null -> krijim i ri; p_id = <id> -> përditësim (nga paguesi ose nga ai që e regjistroi)
 -- p_member_ids = anëtarët mes të cilëve ndahet (injorohet për shpenzimet personale)
 -- p_paid_by    = kush e pagoi (null -> përdoruesi i kyçur); shpenzimet personale paguhen gjithmonë nga vetja
+-- p_expense_date = data e shpenzimit (null -> sot gjatë krijimit / pa ndryshim gjatë përditësimit)
 
--- Versioni i vjetër me 6 parametra hiqet, përndryshe PostgREST nuk di cilin të thërrasë
+-- Versionet e vjetra hiqen, përndryshe PostgREST nuk di cilin të thërrasë
 drop function if exists public.save_expense(bigint, text, numeric, text, boolean, uuid[]);
+drop function if exists public.save_expense(bigint, text, numeric, text, boolean, uuid[], uuid);
 
 create or replace function public.save_expense(
   p_id bigint,
@@ -216,7 +267,8 @@ create or replace function public.save_expense(
   p_category text,
   p_is_personal boolean,
   p_member_ids uuid[],
-  p_paid_by uuid default null
+  p_paid_by uuid default null,
+  p_expense_date date default null
 )
 returns public.expenses
 language plpgsql
@@ -247,10 +299,13 @@ begin
   if not exists (select 1 from public.profiles where id = payer and household_id = hh) then
     raise exception 'Personi që e pagoi nuk është anëtar i banesës.';
   end if;
+  if p_expense_date > current_date + 1 then
+    raise exception 'Data e shpenzimit nuk mund të jetë në të ardhmen.';
+  end if;
 
   if p_id is null then
-    insert into public.expenses (household_id, paid_by, created_by, title, total_amount, category, is_personal)
-    values (hh, payer, auth.uid(), trim(p_title), round(p_total_amount, 2), coalesce(p_category, 'Të tjera'), coalesce(p_is_personal, false))
+    insert into public.expenses (household_id, paid_by, created_by, title, total_amount, category, is_personal, expense_date)
+    values (hh, payer, auth.uid(), trim(p_title), round(p_total_amount, 2), coalesce(p_category, 'Të tjera'), coalesce(p_is_personal, false), coalesce(p_expense_date, current_date))
     returning * into saved;
   else
     update public.expenses
@@ -258,7 +313,8 @@ begin
         title = trim(p_title),
         total_amount = round(p_total_amount, 2),
         category = coalesce(p_category, 'Të tjera'),
-        is_personal = coalesce(p_is_personal, false)
+        is_personal = coalesce(p_is_personal, false),
+        expense_date = coalesce(p_expense_date, expense_date)
     where id = p_id
       and household_id = hh
       and (paid_by = auth.uid() or created_by = auth.uid())
@@ -390,13 +446,15 @@ create policy "settlements_delete_creator" on public.settlements
 revoke execute on function public.create_household(text) from public, anon;
 revoke execute on function public.join_household(text) from public, anon;
 revoke execute on function public.leave_household() from public, anon;
-revoke execute on function public.save_expense(bigint, text, numeric, text, boolean, uuid[], uuid) from public, anon;
+revoke execute on function public.save_expense(bigint, text, numeric, text, boolean, uuid[], uuid, date) from public, anon;
+revoke execute on function public.my_balances() from public, anon;
 revoke execute on function public.generate_household_code() from public, anon, authenticated;
 
 grant execute on function public.create_household(text) to authenticated;
 grant execute on function public.join_household(text) to authenticated;
 grant execute on function public.leave_household() to authenticated;
-grant execute on function public.save_expense(bigint, text, numeric, text, boolean, uuid[], uuid) to authenticated;
+grant execute on function public.save_expense(bigint, text, numeric, text, boolean, uuid[], uuid, date) to authenticated;
+grant execute on function public.my_balances() to authenticated;
 
 -- ------------------------------------------------------------------------------
 -- 8. REALTIME (Dashboard-i rifreskohet automatikisht kur shoku shton diçka)

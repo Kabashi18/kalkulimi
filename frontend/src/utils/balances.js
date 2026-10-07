@@ -144,12 +144,26 @@ export const computeGroupReport = (expenses = [], settlements = [], members = []
   };
 };
 
+/**
+ * Data e shpenzimit si Date lokale. `expense_date` vjen si "YYYY-MM-DD"; e lexojmë manualisht
+ * sepse `new Date("2026-10-01")` interpretohet si UTC dhe mund të kalojë në ditën e mëparshme.
+ */
+export const expenseDateOf = (expense) => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(expense?.expense_date || '');
+  if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  return expense?.created_at ? new Date(expense.created_at) : null;
+};
+
+/** Data e sotme lokale në formatin "YYYY-MM-DD" (për fushën e datës). */
+export const todayISO = (now = new Date()) =>
+  `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
 /** Totali i paguar nga xhepi i përdoruesit në muajin aktual (personale + të përbashkëta). */
 export const computeMonthlyOutOfPocket = (userId, expenses = [], now = new Date()) => {
   const cents = expenses
     .filter((e) => {
-      if (e.paid_by !== userId || !e.created_at) return false;
-      const d = new Date(e.created_at);
+      const d = expenseDateOf(e);
+      if (e.paid_by !== userId || !d) return false;
       return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
     })
     .reduce((sum, e) => sum + toCents(e.total_amount), 0);

@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { isPersonalExpense } from '../api/expenseApi';
+import { expenseDateOf } from '../utils/balances';
 import { Zap, Home, Utensils, Wifi, Droplets, Receipt, Sparkles, MoreVertical, Edit2, Trash2, User, Users } from 'lucide-react';
 
 const getCategoryDetails = (category = '') => {
@@ -46,13 +47,10 @@ export default function ExpenseItem({ expense, currentUserId = 1, onEdit, onDele
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const formattedDate = expense.created_at
-    ? new Date(expense.created_at).toLocaleDateString('sq-AL', {
-        day: '2-digit',
-        month: 'short',
-        hour: '2-digit',
-        minute: '2-digit',
-      })
+  // Data e shpenzimit (jo koha e regjistrimit)
+  const date = expenseDateOf(expense);
+  const formattedDate = date
+    ? date.toLocaleDateString('sq-AL', { day: '2-digit', month: 'short', year: 'numeric' })
     : '';
 
   return (

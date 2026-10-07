@@ -38,8 +38,9 @@ const fetchHouseholdData = async (householdId) => {
     householdApi.getMembers(householdId),
     supabase
       .from('expenses')
-      .select('id, household_id, paid_by, created_by, title, total_amount, category, is_personal, created_at, splits:expense_splits(user_id, amount_owed)')
+      .select('id, household_id, paid_by, created_by, title, total_amount, category, is_personal, expense_date, created_at, splits:expense_splits(user_id, amount_owed)')
       .eq('household_id', householdId)
+      .order('expense_date', { ascending: false })
       .order('created_at', { ascending: false }),
     supabase
       .from('settlements')
@@ -58,7 +59,7 @@ const fetchHouseholdData = async (householdId) => {
   };
 };
 
-const saveExpense = async (id, { title, total_amount, category, isPersonal = false, member_ids = [], paid_by = null }) => {
+const saveExpense = async (id, { title, total_amount, category, isPersonal = false, member_ids = [], paid_by = null, expense_date = null }) => {
   const amount = parseFloat(total_amount);
   if (!title || !title.trim()) throw new Error('Ju lutem shkruani një titull për shpenzimin.');
   if (isNaN(amount) || amount <= 0) throw new Error('Ju lutem vendosni një shumë pozitive në euro.');
@@ -72,7 +73,8 @@ const saveExpense = async (id, { title, total_amount, category, isPersonal = fal
     p_is_personal: Boolean(isPersonal),
     p_member_ids: isPersonal ? [] : member_ids,
     // Shpenzimet personale paguhen gjithmonë nga vetë përdoruesi
-    p_paid_by: isPersonal ? null : paid_by
+    p_paid_by: isPersonal ? null : paid_by,
+    p_expense_date: expense_date || null
   });
   if (error) throw toAppError(error, 'Ndodhi një gabim gjatë ruajtjes së shpenzimit.');
   return { success: true, data: normalizeExpense(data) };

@@ -3,7 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator,
 import { Ionicons } from '@expo/vector-icons';
 import { expenseApi } from '../api/expenseApi';
 import { householdApi } from '../api/householdApi';
-import { isPersonalExpense } from '../utils/balances';
+import { isPersonalExpense, expenseDateOf, todayISO } from '../utils/balances';
 
 const CATEGORIES = [
   { id: 'Rrymë', name: 'Rrymë', icon: 'flash', color: '#d97706' },
@@ -14,6 +14,15 @@ const CATEGORIES = [
   { id: 'Pastrim', name: 'Pastrim', icon: 'sparkles', color: '#db2777' },
   { id: 'Të tjera', name: 'Të tjera', icon: 'receipt-outline', color: '#475569' }
 ];
+
+// Zgjedhës i thjeshtë datash pa varësi native: ◀ data ▶ + "Sot" / "Dje"
+const shiftDays = (iso, days) => {
+  const d = expenseDateOf({ expense_date: iso });
+  d.setDate(d.getDate() + days);
+  return todayISO(d);
+};
+const formatDay = (iso) =>
+  expenseDateOf({ expense_date: iso }).toLocaleDateString('sq-AL', { weekday: 'short', day: '2-digit', month: 'long', year: 'numeric' });
 
 const Label = ({ children }) => (
   <Text className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">{children}</Text>
@@ -32,6 +41,8 @@ export default function AddExpenseScreen({ currentUserId, household, expenseToEd
   const [category, setCategory] = useState(expenseToEdit?.category || 'Rrymë');
   const [isShared, setIsShared] = useState(expenseToEdit ? !isPersonalExpense(expenseToEdit) : true);
   const [paidBy, setPaidBy] = useState(expenseToEdit?.paid_by_user_id || currentUserId);
+  const [expenseDate, setExpenseDate] = useState(expenseToEdit?.expense_date || todayISO());
+  const today = todayISO();
   const [members, setMembers] = useState([]);
   const [selectedIds, setSelectedIds] = useState(expenseToEdit?.member_ids?.length ? expenseToEdit.member_ids : null);
   const [loading, setLoading] = useState(false);
@@ -63,7 +74,8 @@ export default function AddExpenseScreen({ currentUserId, household, expenseToEd
       category,
       isPersonal: !isShared,
       member_ids: isShared ? selected : [],
-      paid_by: isShared ? paidBy : currentUserId
+      paid_by: isShared ? paidBy : currentUserId,
+      expense_date: expenseDate
     };
     try {
       setLoading(true);
@@ -137,6 +149,26 @@ export default function AddExpenseScreen({ currentUserId, household, expenseToEd
               keyboardType="decimal-pad"
               className="flex-1 py-3 text-2xl font-bold text-slate-900"
             />
+          </View>
+
+          {/* 3b. Data */}
+          <Label>Data e Shpenzimit</Label>
+          <View className="flex-row items-center bg-white border border-slate-200 rounded-2xl px-2 py-2 mb-2">
+            <TouchableOpacity onPress={() => setExpenseDate(shiftDays(expenseDate, -1))} className="w-9 h-9 rounded-xl bg-slate-100 items-center justify-center">
+              <Ionicons name="chevron-back" size={18} color="#334155" />
+            </TouchableOpacity>
+            <Text className="flex-1 text-center text-sm font-semibold text-slate-800">{formatDay(expenseDate)}</Text>
+            <TouchableOpacity
+              onPress={() => setExpenseDate(shiftDays(expenseDate, 1))}
+              disabled={expenseDate >= today}
+              className={`w-9 h-9 rounded-xl bg-slate-100 items-center justify-center ${expenseDate >= today ? 'opacity-30' : ''}`}
+            >
+              <Ionicons name="chevron-forward" size={18} color="#334155" />
+            </TouchableOpacity>
+          </View>
+          <View className="flex-row mb-4">
+            <Chip active={expenseDate === today} onPress={() => setExpenseDate(today)}>Sot</Chip>
+            <Chip active={expenseDate === shiftDays(today, -1)} onPress={() => setExpenseDate(shiftDays(today, -1))}>Dje</Chip>
           </View>
 
           {/* 4. Kategoria */}

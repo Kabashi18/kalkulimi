@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Check, Users, User, Zap, Home, Utensils, Wifi, Droplets, Receipt, Sparkles, Info } from 'lucide-react';
+import { ArrowLeft, Check, Users, User, CalendarDays, Zap, Home, Utensils, Wifi, Droplets, Receipt, Sparkles, Info } from 'lucide-react';
 import { expenseApi, isPersonalExpense } from '../api/expenseApi';
 import { householdApi } from '../api/householdApi';
+import { todayISO } from '../utils/balances';
 
 const CATEGORIES = [
   { id: 'Rrymë', name: 'Rrymë', Icon: Zap, color: 'text-amber-600 bg-amber-50 border-amber-200' },
@@ -32,6 +33,9 @@ export default function AddExpenseScreen({ onBack, onExpenseAdded, currentUserId
   const [selectedIds, setSelectedIds] = useState(
     expenseToEdit?.member_ids?.length ? expenseToEdit.member_ids : null
   );
+  // Data e shpenzimit (p.sh. fatura e shtatorit e regjistruar në tetor)
+  const [expenseDate, setExpenseDate] = useState(expenseToEdit?.expense_date || todayISO());
+
   // Kush e pagoi (si parazgjedhje: përdoruesi i kyçur)
   const [paidBy, setPaidBy] = useState(expenseToEdit?.paid_by_user_id || currentUserId);
   const [loading, setLoading] = useState(false);
@@ -91,7 +95,8 @@ export default function AddExpenseScreen({ onBack, onExpenseAdded, currentUserId
         category: category,
         isPersonal: !isShared,
         member_ids: isShared ? selected : [],
-        paid_by: isShared ? paidBy : currentUserId
+        paid_by: isShared ? paidBy : currentUserId,
+        expense_date: expenseDate
       };
 
       if (isEditing) {
@@ -206,6 +211,24 @@ export default function AddExpenseScreen({ onBack, onExpenseAdded, currentUserId
               placeholder="0.00"
               required
               className="w-full bg-white border border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 rounded-2xl pl-10 pr-4 py-3 text-xl font-bold text-slate-900 outline-none transition-all shadow-sm"
+            />
+          </div>
+        </div>
+
+        {/* 3b. Data e shpenzimit */}
+        <div>
+          <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1.5">
+            Data e Shpenzimit
+          </label>
+          <div className="relative">
+            <CalendarDays className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              type="date"
+              value={expenseDate}
+              max={todayISO()}
+              onChange={(e) => setExpenseDate(e.target.value)}
+              required
+              className="w-full bg-white border border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 rounded-2xl pl-11 pr-4 py-3 text-sm font-semibold text-slate-800 outline-none transition-all shadow-sm"
             />
           </div>
         </div>

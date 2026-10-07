@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { isPersonalExpense } from '../utils/balances';
+import { isPersonalExpense, expenseDateOf } from '../utils/balances';
 
 const getCategoryDetails = (category = '') => {
   const cat = category.toLowerCase();
@@ -19,9 +19,8 @@ export default function ExpenseItem({ expense, onOptions }) {
   const { icon, color, bg } = getCategoryDetails(expense.category);
   const isShared = !isPersonalExpense(expense);
   const isPayer = expense.is_payer === 1;
-  const formattedDate = expense.created_at
-    ? new Date(expense.created_at).toLocaleDateString('sq-AL', { day: '2-digit', month: 'short' })
-    : '';
+  const date = expenseDateOf(expense);
+  const formattedDate = date ? date.toLocaleDateString('sq-AL', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
 
   return (
     <TouchableOpacity
