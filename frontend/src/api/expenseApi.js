@@ -38,7 +38,7 @@ const fetchHouseholdData = async (householdId) => {
     householdApi.getMembers(householdId),
     supabase
       .from('expenses')
-      .select('id, household_id, paid_by, title, total_amount, category, is_personal, created_at, splits:expense_splits(user_id, amount_owed)')
+      .select('id, household_id, paid_by, created_by, title, total_amount, category, is_personal, created_at, splits:expense_splits(user_id, amount_owed)')
       .eq('household_id', householdId)
       .order('created_at', { ascending: false }),
     supabase
@@ -58,7 +58,7 @@ const fetchHouseholdData = async (householdId) => {
   };
 };
 
-const saveExpense = async (id, { title, total_amount, category, isPersonal = false, member_ids = [] }) => {
+const saveExpense = async (id, { title, total_amount, category, isPersonal = false, member_ids = [], paid_by = null }) => {
   const amount = parseFloat(total_amount);
   if (!title || !title.trim()) throw new Error('Ju lutem shkruani një titull për shpenzimin.');
   if (isNaN(amount) || amount <= 0) throw new Error('Ju lutem vendosni një shumë pozitive në euro.');
@@ -70,7 +70,9 @@ const saveExpense = async (id, { title, total_amount, category, isPersonal = fal
     p_total_amount: amount,
     p_category: category || 'Të tjera',
     p_is_personal: Boolean(isPersonal),
-    p_member_ids: isPersonal ? [] : member_ids
+    p_member_ids: isPersonal ? [] : member_ids,
+    // Shpenzimet personale paguhen gjithmonë nga vetë përdoruesi
+    p_paid_by: isPersonal ? null : paid_by
   });
   if (error) throw toAppError(error, 'Ndodhi një gabim gjatë ruajtjes së shpenzimit.');
   return { success: true, data: normalizeExpense(data) };
@@ -91,6 +93,8 @@ export const expenseApi = {
         paid_by_user_id: exp.paid_by,
         paid_by_name: nameOf(exp.paid_by),
         is_payer: isPayer ? 1 : 0,
+        // Ndryshimi / fshirja lejohet për paguesin dhe për atë që e regjistroi
+        can_edit: isPayer || exp.created_by === userId,
         my_split_amount: exp.isPersonal ? exp.total_amount : (mySplit?.amount_owed ?? 0),
         member_ids: exp.splits.map((s) => s.user_id)
       };
@@ -116,14 +120,14 @@ export const expenseApi = {
   // 2. Shpenzim i ri (personal ose i përbashkët mes `member_ids`)
   createExpense: (payload) => saveExpense(null, payload),
 
-  // 3. Përditësim (lejohet vetëm për atë që e ka paguar)
+  // 3. Përditësim (lejohet për paguesin ose për atë që e regjistroi)
   updateExpense: (id, payload) => saveExpense(Number(id), payload),
 
-  // 4. Fshirje (lejohet vetëm për atë që e ka paguar)
+  // 4. Fshirje (lejohet për paguesin ose për atë që e regjistroi)
   deleteExpense: async (id) => {
     const { data, error } = await supabase.from('expenses').delete().eq('id', id).select('id');
     if (error) throw toAppError(error, 'Dështoi fshirja e shpenzimit.');
-    if (!data || data.length === 0) throw new Error('Vetëm personi që e ka paguar mund ta fshijë këtë shpenzim.');
+    if (!data || data.length === 0) throw new Error('Vetëm ai që e pagoi ose e regjistroi mund ta fshijë këtë shpenzim.');
     return { success: true, message: 'Shpenzimi u fshi me sukses.' };
   },
 

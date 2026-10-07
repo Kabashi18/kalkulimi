@@ -1,0 +1,175 @@
+// KOPJE e frontend/src/utils/balances.js - mbajini të sinkronizuara kur ndryshoni logjikën e borxheve.
+// (Metro / Expo nuk lexon skedarë jashtë dosjes mobile/ pa konfigurim shtesë.)
+
+// ==============================================================================
+// LLOGARITJA E BORXHEVE (funksione të pastra, pa varësi nga Supabase)
+// ==============================================================================
+// Të gjitha llogaritjet bëhen në centë (numra të plotë) që të shmangen gabimet e
+// presjes dhjetore (p.sh. 0.1 + 0.2). Konvertohen në euro vetëm në fund.
+
+const toCents = (value) => Math.round(Number(value || 0) * 100);
+const toEuro = (cents) => Number((cents / 100).toFixed(2));
+
+const memberName = (members, id) =>
+  members.find((m) => m.id === id)?.name || 'Ish-anëtar';
+
+// Burimi i vetëm i së vërtetës: a është shpenzimi individual (personal)?
+// Pranon `isPersonal` dhe `is_personal`. Nëse mungon flamuri, shpenzimi është i përbashkët.
+export const isPersonalExpense = (expense) => {
+  if (!expense) return false;
+  if (typeof expense.isPersonal === 'boolean') return expense.isPersonal;
+  if (typeof expense.is_personal === 'boolean') return expense.is_personal;
+  return false;
+};
+
+/**
+ * Borxhet dypalëshe të një përdoruesi me secilin shok banese.
+ * Pozitiv = shoku i ka borxh përdoruesit; negativ = përdoruesi i ka borxh shokut.
+ */
+export const computeBalancesForUser = (userId, expenses = [], settlements = [], members = []) => {
+  const net = {}; // otherUserId -> centë
+
+  const add = (otherId, cents) => {
+    if (!otherId || otherId === userId) return;
+    net[otherId] = (net[otherId] || 0) + cents;
+  };
+
+  expenses.forEach((expense) => {
+    if (isPersonalExpense(expense)) return; // Shpenzimet individuale nuk krijojnë borxhe
+    const splits = expense.splits || [];
+
+    if (expense.paid_by === userId) {
+      // Unë pagova: secili tjetër më ka borxh pjesën e vet
+      splits.forEach((s) => add(s.user_id, toCents(s.amount_owed)));
+    } else {
+      // Dikush tjetër pagoi: unë i kam borxh pjesën time
+      const mine = splits.find((s) => s.user_id === userId);
+      if (mine) add(expense.paid_by, -toCents(mine.amount_owed));
+    }
+  });
+
+  settlements.forEach((s) => {
+    const cents = toCents(s.amount);
+    if (s.from_user === userId) add(s.to_user, cents); // Unë i dhashë para -> borxhi im zvogëlohet
+    if (s.to_user === userId) add(s.from_user, -cents); // Më dhanë para -> borxhi i tyre zvogëlohet
+  });
+
+  const breakdown = Object.entries(net)
+    .filter(([, cents]) => cents !== 0)
+    .map(([otherId, cents]) => ({
+      userId: otherId,
+      name: memberName(members, otherId),
+      amount: toEuro(Math.abs(cents)),
+      type: cents > 0 ? 'owed_to_user' : 'user_owes'
+    }))
+    .sort((a, b) => b.amount - a.amount);
+
+  const owedCents = Object.values(net).filter((c) => c > 0).reduce((a, b) => a + b, 0);
+  const owesCents = Object.values(net).filter((c) => c < 0).reduce((a, b) => a - b, 0);
+
+  return {
+    breakdown,
+    totalOwedToUser: toEuro(owedCents),
+    totalUserOwes: toEuro(owesCents),
+    netAmount: toEuro(owedCents - owesCents)
+  };
+};
+
+/**
+ * Raporti i plotë i banesës: sa pagoi secili, sa i takonte, bilanci neto
+ * dhe numri minimal i pagesave për t'u barazuar të gjithë.
+ */
+export const computeGroupReport = (expenses = [], settlements = [], members = []) => {
+  const shared = expenses.filter((e) => !isPersonalExpense(e));
+  const stats = {};
+  const ensure = (id) => (stats[id] ||= { paid: 0, owed: 0, sent: 0, received: 0 });
+  members.forEach((m) => ensure(m.id));
+
+  shared.forEach((e) => {
+    ensure(e.paid_by).paid += toCents(e.total_amount);
+    (e.splits || []).forEach((s) => (ensure(s.user_id).owed += toCents(s.amount_owed)));
+  });
+  settlements.forEach((s) => {
+    ensure(s.from_user).sent += toCents(s.amount);
+    ensure(s.to_user).received += toCents(s.amount);
+  });
+
+  const rows = Object.entries(stats).map(([id, s]) => ({
+    userId: id,
+    name: memberName(members, id),
+    paidCents: s.paid,
+    owedCents: s.owed,
+    netCents: s.paid - s.owed + s.sent - s.received
+  }));
+
+  // Algoritmi "greedy": debitori më i madh i paguan kreditorit më të madh
+  const creditors = rows.filter((r) => r.netCents > 0).map((r) => ({ ...r, left: r.netCents }));
+  const debtors = rows.filter((r) => r.netCents < 0).map((r) => ({ ...r, left: -r.netCents }));
+  creditors.sort((a, b) => b.left - a.left);
+  debtors.sort((a, b) => b.left - a.left);
+
+  const instructions = [];
+  let ci = 0;
+  let di = 0;
+  while (ci < creditors.length && di < debtors.length) {
+    const pay = Math.min(creditors[ci].left, debtors[di].left);
+    instructions.push({
+      fromId: debtors[di].userId,
+      toId: creditors[ci].userId,
+      from: debtors[di].name,
+      to: creditors[ci].name,
+      amount: toEuro(pay)
+    });
+    creditors[ci].left -= pay;
+    debtors[di].left -= pay;
+    if (creditors[ci].left === 0) ci += 1;
+    if (debtors[di].left === 0) di += 1;
+  }
+
+  const totalCents = shared.reduce((sum, e) => sum + toCents(e.total_amount), 0);
+  const memberCount = Math.max(members.length, 1);
+
+  return {
+    totalAmount: toEuro(totalCents),
+    memberCount: members.length,
+    perPersonAverage: toEuro(Math.round(totalCents / memberCount)),
+    members: rows
+      .filter((r) => members.some((m) => m.id === r.userId) || r.netCents !== 0)
+      .map((r) => ({
+        userId: r.userId,
+        name: r.name,
+        paid: toEuro(r.paidCents),
+        owed: toEuro(r.owedCents),
+        netBalance: toEuro(r.netCents)
+      })),
+    settlements: instructions,
+    expenses: shared
+  };
+};
+
+/** Totali i paguar nga xhepi i përdoruesit në muajin aktual (personale + të përbashkëta). */
+export const computeMonthlyOutOfPocket = (userId, expenses = [], now = new Date()) => {
+  const cents = expenses
+    .filter((e) => {
+      if (e.paid_by !== userId || !e.created_at) return false;
+      const d = new Date(e.created_at);
+      return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+    })
+    .reduce((sum, e) => sum + toCents(e.total_amount), 0);
+  return toEuro(cents);
+};
+
+/** Shpërndarja sipas kategorive për grafikun. */
+export const computeCategoryBreakdown = (expenses = []) => {
+  const totals = {};
+  expenses.forEach((e) => {
+    const cat = e.category || 'Të tjera';
+    totals[cat] = (totals[cat] || 0) + toCents(e.total_amount);
+  });
+  const all = Object.values(totals).reduce((a, b) => a + b, 0);
+  return Object.entries(totals).map(([category, cents]) => ({
+    category,
+    total: toEuro(cents),
+    percentage: all > 0 ? Math.round((cents / all) * 100) : 0
+  }));
+};

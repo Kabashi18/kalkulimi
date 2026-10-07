@@ -78,6 +78,7 @@ export const toAppError = (error, fallback = 'Ndodhi një gabim. Provoni sërish
     return new Error('Çelësi i Supabase (VITE_SUPABASE_ANON_KEY) është i pavlefshëm. Kopjoni sërish "Publishable key" të plotë dhe bëni Redeploy.');
   }
   if (/Invalid login credentials/i.test(msg)) return new Error('Email-i ose fjalëkalimi nuk është i saktë.');
+  if (/rate limit/i.test(msg)) return new Error('Shumë regjistrime brenda një kohe të shkurtër. Provoni sërish pas pak minutash.');
   if (/Email not confirmed/i.test(msg)) return new Error('Ju lutem konfirmoni email-in tuaj (shikoni inbox-in) para kyçjes.');
   if (/already registered|already been registered/i.test(msg)) return new Error('Ky email është i regjistruar tashmë!');
   if (/Password should be at least/i.test(msg)) return new Error('Fjalëkalimi duhet të ketë të paktën 6 karaktere.');

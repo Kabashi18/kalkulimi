@@ -1,142 +1,47 @@
-# Sistemi i Menaxhimit të Shpenzimeve (Node.js + Express + MySQL)
+# Kalkulimi: Ndarja e Shpenzimeve të Banesës
 
-Një RESTful API i plotë për menaxhimin e shpenzimeve vetjake dhe atyre të përbashkëta në banesë (me ndarje automatike të barabartë mes shokëve të banesës dhe llogaritje të bilancit të barazimit - ngjashëm me Splitwise).
+Aplikacion për shokët e banesës që ndajnë faturat (si Splitwise). Të dhënat sinkronizohen në kohë reale
+mes të gjitha pajisjeve përmes [Supabase](https://supabase.com).
 
----
+- **Banesa me kod ftese**: njëri krijon banesën (p.sh. `BANESA-4821`) dhe të tjerët bashkohen me kod.
+- **Shpenzime të përbashkëta ose personale**: të përbashkëtat ndahen mes anëtarëve të zgjedhur, kurse personalet i sheh vetëm pronari.
+- **Kush e pagoi?**: shpenzimin mund ta regjistrojë kushdo në emër të shokut që e pagoi.
+- **Kush i ka borxh kujt**: borxhet dypalëshe dhe butoni **Laje Borxhin** për pagesat e kthyera.
+- **Raport PDF**: barazimi i plotë i banesës me numrin minimal të pagesave.
 
-## 📁 Struktura e Projektit
+## Struktura
 
 ```text
-expense-manager-backend/
-├── config/
-│   └── db.js                 # Lidhja me MySQL Connection Pool
-├── controllers/
-│   └── expenseController.js  # Logjika e biznesit (regjistrimi, ndarja, përmbledhja)
-├── models/
-│   ├── Expense.js            # Modeli i shpenzimeve dhe ndarjeve
-│   ├── Group.js              # Modeli i grupit dhe anëtarëve
-│   └── User.js               # Modeli i përdoruesve
-├── routes/
-│   └── expenseRoutes.js      # Endpoint-et e Express.js
-├── .env                      # Variablat e mjedisit lokalisht
-├── .env.example              # Shembull i variablave të mjedisit
-├── package.json              # Varësitë dhe skriptet e projektit
-├── schema.sql                # Skema e MySQL dhe të dhëna testuese
-└── server.js                 # Pika kryesore hyrëse e aplikacionit
+kalkulimi/
+├── frontend/          # Web app (React + Vite + Tailwind), deploy në Vercel
+│   └── src/
+│       ├── api/       # authApi, householdApi, expenseApi (Supabase)
+│       ├── lib/       # supabaseClient (validimi i variablave të ambientit)
+│       ├── utils/     # balances.js: llogaritja e borxheve (funksione të pastra)
+│       ├── screens/   # Login, Register, HouseholdSetup, Dashboard, AddExpense
+│       └── components/
+├── mobile/            # App mobil (Expo / React Native), i njëjti Supabase
+└── supabase/
+    ├── schema.sql     # Tabelat, RLS, funksionet RPC, realtime
+    └── README.md      # Udhëzimet e konfigurimit
 ```
 
----
+## Nisja e shpejtë
 
-## 🚀 Udhëzime për Instalimin dhe Ekzekutimin
+1. Konfiguroni Supabase sipas [supabase/README.md](supabase/README.md): ekzekutoni `schema.sql` dhe merrni URL-në dhe çelësin.
+2. Web:
+   ```bash
+   cd frontend
+   cp .env.example .env.local   # plotësoni VITE_SUPABASE_URL dhe VITE_SUPABASE_ANON_KEY
+   npm install
+   npm run dev
+   ```
+3. Mobil: shikoni [mobile/README.md](mobile/README.md).
 
-### 1. Krijimi i Databazës në MySQL
-Hapni MySQL Workbench, phpMyAdmin ose terminalin MySQL dhe ekzekutoni skriptin `schema.sql`:
-```bash
-mysql -u root -p < schema.sql
-```
-Kjo do të krijojë databazën `expense_tracker_db`, të gjitha tabelat me çelësat e jashtëm (Foreign Keys), dhe disa të dhëna testuese:
-- 3 përdorues: Artani (ID 1), Blerta (ID 2), Dardani (ID 3)
-- 1 grup: "Banesa në Qendër" (ID 1) me këta tre anëtarë.
+## Deploy (Vercel)
 
-### 2. Instalimi i Varësive
-Në terminal:
-```bash
-cd expense-manager-backend
-npm install
-```
+Vendosni `VITE_SUPABASE_URL` dhe `VITE_SUPABASE_ANON_KEY` te **Settings → Environment Variables**, pastaj bëni **Redeploy**.
+Variablat futen në kod gjatë build-it, prandaj çdo ndryshim i tyre kërkon një deploy të ri.
 
-### 3. Konfigurimi i `.env`
-Sigurohuni që të dhënat në `.env` përputhen me konfigurimin tuaj të MySQL:
-```env
-PORT=5000
-DB_HOST=localhost
-DB_USER=root
-DB_PASS=
-DB_NAME=expense_tracker_db
-```
-
-### 4. Nisja e Serverit
-```bash
-npm start
-# ose me nodemon për zhvillim:
-npm run dev
-```
-Serveri do të jetë i gatshëm në: `http://localhost:5000`.
-
----
-
-## 📡 API Endpoints
-
-### 1. Regjistrimi i Shpenzimit të Ri
-- **URL**: `POST /api/expenses`
-- **Headers**: `Content-Type: application/json`
-
-#### Shembull 1: Shpenzim i Përbashkët Grupi (ndahet automatikisht)
-```json
-{
-  "title": "Blerje Ushqimore në Supermarket",
-  "total_amount": 90.00,
-  "category": "Ushqim",
-  "paid_by_user_id": 1,
-  "group_id": 1
-}
-```
-*Çfarë ndodh:* Serveri gjen se grupi ka 3 anëtarë, llogarit ndarjen e barabartë (30.00 € për secilin) dhe me anë të një transaksioni në MySQL regjistron shpenzimin në `expenses` dhe 3 rreshta në `expense_splits`.
-
-#### Shembull 2: Shpenzim Personal
-```json
-{
-  "title": "Kafene & Dreka Personale",
-  "total_amount": 12.50,
-  "category": "Ushqim",
-  "paid_by_user_id": 1,
-  "group_id": null
-}
-```
-
----
-
-### 2. Përmbledhja dhe Bilanci i Barazimit
-- **URL**: `GET /api/expenses/summary/:userId`
-- **Përshkrimi**: Kthen të gjitha shpenzimet e lidhura me përdoruesin, totalin e paguar gjatë këtij muaji, dhe bilancin e barazimit (sa para i detyrohet grupit ose sa i detyrohen të tjerët).
-
-#### Shembull Përgjigjeje (JSON):
-```json
-{
-  "success": true,
-  "user": {
-    "id": 1,
-    "name": "Artan Berisha",
-    "email": "artan@example.com"
-  },
-  "summary": {
-    "currentMonth": {
-      "totalPaidOutOfPocket": 102.50,
-      "actualExpenseShare": 42.50,
-      "breakdown": {
-        "personalExpenses": 12.50,
-        "groupShare": 30.00
-      }
-    },
-    "settlementBalance": {
-      "netBalance": 60.00,
-      "status": "owed_to_user",
-      "message": "Të tjerët të detyrohen 60.00 €",
-      "totalPaidForGroups": 90.00,
-      "totalOwedForGroups": 30.00,
-      "groups": [
-        {
-          "groupId": 1,
-          "groupName": "Banesa në Qendër",
-          "totalPaid": 90.00,
-          "totalShare": 30.00,
-          "netBalance": 60.00,
-          "status": "owed_to_user"
-        }
-      ]
-    }
-  },
-  "totalExpensesCount": 2,
-  "expenses": [...]
-}
-```
+> Ndani me shokët domain-in e **produksionit** (Vercel → Settings → Domains). Adresat e deploy-eve individuale
+> (`...-projects.vercel.app`) kërkojnë kyçje në Vercel.

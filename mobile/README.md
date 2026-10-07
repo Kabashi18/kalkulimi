@@ -1,57 +1,34 @@
-# Aplikacioni Mobil me React Native (Expo) & NativeWind (Tailwind CSS)
+# Kalkulimi Mobil (Expo / React Native)
 
-Ky është aplikacioni mobil për menaxhimin e shpenzimeve personale dhe të banesës, i integruar direkt me backend-in e Node.js/Express dhe MySQL.
+App-i mobil përdor **të njëjtin Supabase** si versioni web. Shpenzimet, borxhet dhe pagesat sinkronizohen
+në kohë reale mes telefonit dhe web-it.
 
----
+## Nisja
 
-## 📱 Ekranet Kryesore
-
-1. **Dashboard Screen (Ekrani Kryesor):**
-   - 💳 **Kartela "Totali i Shpenzuar këtë Muaj"** në euro (€).
-   - ⚖️ **Kartela "Barazimi i Banesës"**:
-     - Ngjyrë e gjelbër: kur të tjerët të detyrohen para.
-     - Ngjyrë e kuqe: kur ti i detyrohesh banesës/shokëve.
-     - Ngjyrë neutrale: kur llogaritë janë 0.00 € (të barazuara).
-   - 📋 **Lista e shpenzimeve të fundit** me ikona dhe ngjyra dinamike sipas kategorisë:
-     - ⚡ Rrymë
-     - 🏠 Qira
-     - 🍔 Ushqim
-     - 📶 Internet / TV
-     - 💧 Ujë
-     - 📦 Të tjera
-   - 🔄 **Pull-to-refresh** për rifreskim të të dhënave.
-
-2. **Add Expense Screen (Formulari i Shpenzimit të Ri):**
-   - Input për Titullin.
-   - Input për Shumën në €.
-   - Përzgjedhja e Kategorisë me kartela vizuale.
-   - Switch / Toggle: **"Shpenzim Personal"** vs **"I Përbashkët me Banesën"**.
-   - Nëse zgjidhet i përbashkët: përzgjedhja e personave (2, 3, 4, 5) me **përllogaritje të menjëhershme për person** (p.sh. `90 € / 3 persona = 30.00 € për person`).
-   - Butoni **"Ruaj Shpenzimin"** me status ngarkimi (Loading state) që dërgon kërkesën në `POST /api/expenses`.
-
----
-
-## 🚀 Si ta ekzekutoni në Expo
-
-### 1. Hyni në dosjen `mobile`:
 ```bash
-cd C:\Users\Admin\Desktop\kalkulimi\mobile
-```
-
-### 2. Instaloni varësitë:
-```bash
+cd mobile
+cp .env.example .env      # plotësoni vlerat (të njëjtat si te frontend/.env.local)
 npm install
+npx expo start -c         # -c pastron cache-in, që të merren variablat e reja
 ```
 
-### 3. Konfiguroni IP-në e Backend-it (nëse testoni me telefon):
-Tek skedari `src/api/expenseApi.js`:
-- Nëse testoni në **Android Emulator**: përdor `http://10.0.2.2:5000/api`.
-- Nëse testoni në **iOS Simulator**: përdor `http://localhost:5000/api`.
-- Nëse testoni me **telefon fizik përmes aplikacionit Expo Go**: vendosni IP-në lokale të kompjuterit tuaj (p.sh. `http://192.168.1.X:5000/api`).
+Skanoni kodin QR me **Expo Go** (Android / iOS). Telefoni nuk ka nevojë të jetë në të njëjtin rrjet me
+ndonjë server, sepse lidhet direkt me Supabase.
 
-### 4. Nisni aplikacionin me Expo:
-```bash
-npx expo start
+```env
+EXPO_PUBLIC_SUPABASE_URL=https://xxxxxxxxxxxx.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_...
 ```
-* Skanoni kodin QR me kamerën e telefonit tuaj (iOS) ose me aplikacionin **Expo Go** (Android).
-* Ose shtypni `a` për Android Emulator, `i` për iOS Simulator, ose `w` për Web.
+
+## Ekranet
+
+- **Kyçja / Regjistrimi**: me fushën opsionale "Kodi i Banesës".
+- **Banesa**: "Kam një kod" ose "Krijo banesë".
+- **Dashboard**: totali mujor, **Kush i ka borxh kujt** me **Laje Borxhin**, lista e shpenzimeve
+  (shtypni gjatë ose ⋮ për Ndrysho / Fshij). Klikoni emrin e banesës për kodin e ftesës dhe butonin **Share**.
+- **Shto shpenzim**: e përbashkët ose individuale, **Kush e pagoi?**, me kë ndahet dhe kategoria.
+
+## Kodi i përbashkët me web-in
+
+`src/api/*.js` dhe `src/utils/balances.js` janë kopje të skedarëve në `frontend/src/`. Kur ndryshoni
+logjikën e borxheve ose API-të, përditësoni të dyja kopjet.

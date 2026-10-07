@@ -103,8 +103,8 @@ export default function ExpenseItem({ expense, currentUserId = 1, onEdit, onDele
         )}
       </div>
 
-      {/* Butoni me 3 pika (...) për Menaxhimin (Edit / Delete) - vetëm për atë që e ka paguar */}
-      {isPayer ? (
+      {/* Butoni me 3 pika (...) për Menaxhimin (Edit / Delete) - për paguesin ose regjistruesin */}
+      {(expense.can_edit ?? isPayer) ? (
       <div className="relative shrink-0" ref={menuRef}>
         <button
           onClick={() => setShowMenu(!showMenu)}

@@ -32,6 +32,8 @@ export default function AddExpenseScreen({ onBack, onExpenseAdded, currentUserId
   const [selectedIds, setSelectedIds] = useState(
     expenseToEdit?.member_ids?.length ? expenseToEdit.member_ids : null
   );
+  // Kush e pagoi (si parazgjedhje: përdoruesi i kyçur)
+  const [paidBy, setPaidBy] = useState(expenseToEdit?.paid_by_user_id || currentUserId);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
 
@@ -88,7 +90,8 @@ export default function AddExpenseScreen({ onBack, onExpenseAdded, currentUserId
         total_amount: numericAmount,
         category: category,
         isPersonal: !isShared,
-        member_ids: isShared ? selected : []
+        member_ids: isShared ? selected : [],
+        paid_by: isShared ? paidBy : currentUserId
       };
 
       if (isEditing) {
@@ -242,6 +245,31 @@ export default function AddExpenseScreen({ onBack, onExpenseAdded, currentUserId
         {/* 5. Kartela e Ndarjes (Shfaqet vetëm për Shpenzime të Përbashkëta) */}
         {isShared ? (
           <div className="bg-indigo-50/60 border border-indigo-200/80 rounded-3xl p-4 shadow-sm space-y-3 animate-in fade-in duration-200">
+            {/* Kush e pagoi? */}
+            {members.length > 1 && (
+              <div className="pb-3 border-b border-indigo-200/70">
+                <span className="block text-[11px] font-bold text-indigo-900 uppercase tracking-wider mb-2">
+                  Kush e pagoi?
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  {members.map((m) => (
+                    <button
+                      type="button"
+                      key={m.id}
+                      onClick={() => setPaidBy(m.id)}
+                      className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                        paidBy === m.id
+                          ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                          : 'bg-white text-slate-600 border-indigo-100 hover:bg-indigo-100/50'
+                      }`}
+                    >
+                      {m.id === currentUserId ? 'Unë' : m.name.split(' ')[0]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="flex justify-between items-center">
               <span className="text-[11px] font-bold text-indigo-900 uppercase tracking-wider">
                 Ndahet me:

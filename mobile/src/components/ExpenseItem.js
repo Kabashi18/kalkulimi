@@ -1,89 +1,63 @@
 import React from 'react';
-import { View, Text } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { isPersonalExpense } from '../utils/balances';
 
-// Funksion ndihmës për të caktuar ikonën dhe ngjyrën sipas kategorisë
 const getCategoryDetails = (category = '') => {
   const cat = category.toLowerCase();
-
-  if (cat.includes('rrym') || cat.includes('energji') || cat.includes('drita')) {
-    return { icon: 'flash', color: '#f59e0b', bg: 'bg-amber-100', border: 'border-amber-200' };
-  }
-  if (cat.includes('qira') || cat.includes('banes')) {
-    return { icon: 'home', color: '#6366f1', bg: 'bg-indigo-100', border: 'border-indigo-200' };
-  }
-  if (cat.includes('ushqim') || cat.includes('market') || cat.includes('dreka') || cat.includes('kafe')) {
-    return { icon: 'fast-food', color: '#10b981', bg: 'bg-emerald-100', border: 'border-emerald-200' };
-  }
-  if (cat.includes('internet') || cat.includes('wifi') || cat.includes('tv')) {
-    return { icon: 'wifi', color: '#0ea5e9', bg: 'bg-sky-100', border: 'border-sky-200' };
-  }
-  if (cat.includes('uj') || cat.includes('ujësjellës')) {
-    return { icon: 'water', color: '#3b82f6', bg: 'bg-blue-100', border: 'border-blue-200' };
-  }
-  if (cat.includes('pastrim') || cat.includes('mirmbajtje')) {
-    return { icon: 'sparkles', color: '#ec4899', bg: 'bg-pink-100', border: 'border-pink-200' };
-  }
-
-  return { icon: 'receipt-outline', color: '#64748b', bg: 'bg-slate-100', border: 'border-slate-200' };
+  if (cat.includes('rrym') || cat.includes('energji')) return { icon: 'flash', color: '#d97706', bg: 'bg-amber-50' };
+  if (cat.includes('qira') || cat.includes('banes')) return { icon: 'home', color: '#4f46e5', bg: 'bg-indigo-50' };
+  if (cat.includes('ushqim') || cat.includes('market')) return { icon: 'fast-food', color: '#059669', bg: 'bg-emerald-50' };
+  if (cat.includes('internet') || cat.includes('tv')) return { icon: 'wifi', color: '#0284c7', bg: 'bg-sky-50' };
+  if (cat.includes('uj')) return { icon: 'water', color: '#2563eb', bg: 'bg-blue-50' };
+  if (cat.includes('pastrim')) return { icon: 'sparkles', color: '#db2777', bg: 'bg-pink-50' };
+  return { icon: 'receipt-outline', color: '#475569', bg: 'bg-slate-50' };
 };
 
-export default function ExpenseItem({ expense, currentUserId = 1 }) {
-  const { icon, color, bg, border } = getCategoryDetails(expense.category);
-  const isPayer = expense.paid_by_user_id === currentUserId || expense.is_payer === 1;
-  const isShared = expense.group_id !== null;
-
-  // Formatimi i datës
+// Shtypja e gjatë (ose ikona ⋮) hap opsionet Ndrysho / Fshij për paguesin ose regjistruesin
+export default function ExpenseItem({ expense, onOptions }) {
+  const { icon, color, bg } = getCategoryDetails(expense.category);
+  const isShared = !isPersonalExpense(expense);
+  const isPayer = expense.is_payer === 1;
   const formattedDate = expense.created_at
-    ? new Date(expense.created_at).toLocaleDateString('sq-AL', {
-        day: '2-digit',
-        month: 'short',
-        hour: '2-digit',
-        minute: '2-digit',
-      })
+    ? new Date(expense.created_at).toLocaleDateString('sq-AL', { day: '2-digit', month: 'short' })
     : '';
 
   return (
-    <View className="flex-row items-center justify-between p-4 mb-3 bg-white rounded-2xl border border-slate-100 shadow-sm">
-      {/* Pjesa e majtë: Ikona & Detajet */}
-      <View className="flex-row items-center flex-1 mr-3">
-        <View className={`w-12 h-12 rounded-xl items-center justify-center mr-3 border ${bg} ${border}`}>
-          <Ionicons name={icon} size={22} color={color} />
-        </View>
+    <TouchableOpacity
+      activeOpacity={expense.can_edit ? 0.7 : 1}
+      onLongPress={expense.can_edit ? () => onOptions?.(expense) : undefined}
+      className="flex-row items-center p-3.5 mb-2.5 bg-white rounded-2xl border border-slate-100"
+    >
+      <View className={`w-11 h-11 rounded-2xl items-center justify-center mr-3 ${bg}`}>
+        <Ionicons name={icon} size={20} color={color} />
+      </View>
 
-        <View className="flex-1">
-          <Text className="text-base font-semibold text-slate-800" numberOfLines={1}>
-            {expense.title}
-          </Text>
-          <View className="flex-row items-center mt-1 flex-wrap">
-            <Text className="text-xs text-slate-400 mr-2">{formattedDate}</Text>
-            {isShared ? (
-              <View className="bg-purple-100 px-2 py-0.5 rounded-full border border-purple-200">
-                <Text className="text-[10px] font-medium text-purple-700">Ndarë në Banesë</Text>
-              </View>
-            ) : (
-              <View className="bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
-                <Text className="text-[10px] font-medium text-slate-600">Personal</Text>
-              </View>
-            )}
+      <View className="flex-1 mr-2">
+        <Text numberOfLines={1} className="text-sm font-semibold text-slate-800">{expense.title}</Text>
+        <View className="flex-row items-center mt-1">
+          <Text className="text-[10px] text-slate-400 mr-2">{formattedDate}</Text>
+          <View className={`px-2 py-0.5 rounded-full border ${isShared ? 'bg-indigo-50 border-indigo-200' : 'bg-slate-100 border-slate-200'}`}>
+            <Text className={`text-[9px] font-bold ${isShared ? 'text-indigo-700' : 'text-slate-600'}`}>
+              {isShared ? 'E përbashkët' : 'Personale'}
+            </Text>
           </View>
         </View>
       </View>
 
-      {/* Pjesa e djathtë: Shuma dhe statusi */}
       <View className="items-end">
-        <Text className="text-base font-bold text-slate-900">
-          {Number(expense.total_amount).toFixed(2)} €
-        </Text>
-        <Text className="text-xs text-slate-500 mt-0.5">
-          {isPayer ? 'Paguar nga ti' : `Nga: ${expense.paid_by_name || 'Shoku'}`}
-        </Text>
-        {isShared && expense.my_split_amount && (
-          <Text className="text-[11px] font-semibold text-indigo-600 mt-0.5">
-            Pjesa jote: {Number(expense.my_split_amount).toFixed(2)} €
-          </Text>
+        <Text className="text-sm font-black text-slate-900">{Number(expense.total_amount).toFixed(2)} €</Text>
+        <Text className="text-[10px] text-slate-500 mt-0.5">{isPayer ? 'Paguar nga ti' : `Nga: ${expense.paid_by_name}`}</Text>
+        {isShared && expense.my_split_amount > 0 && (
+          <Text className="text-[10px] font-bold text-indigo-600">Pjesa jote: {Number(expense.my_split_amount).toFixed(2)} €</Text>
         )}
       </View>
-    </View>
+
+      {expense.can_edit && (
+        <TouchableOpacity onPress={() => onOptions?.(expense)} className="ml-1 p-1" hitSlop={8}>
+          <Ionicons name="ellipsis-vertical" size={16} color="#94a3b8" />
+        </TouchableOpacity>
+      )}
+    </TouchableOpacity>
   );
 }
