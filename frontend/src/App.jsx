@@ -6,7 +6,7 @@ import RegisterScreen from './screens/RegisterScreen';
 import HouseholdSetupScreen from './screens/HouseholdSetupScreen';
 import { authApi } from './api/authApi';
 import { householdApi } from './api/householdApi';
-import { isSupabaseConfigured } from './lib/supabaseClient';
+import { isSupabaseConfigured, supabaseConfigError } from './lib/supabaseClient';
 
 const FullScreenSpinner = ({ text }) => (
   <div className="my-auto text-center">
@@ -18,11 +18,16 @@ const FullScreenSpinner = ({ text }) => (
 const ConfigMissing = () => (
   <div className="w-full max-w-md my-auto bg-white rounded-3xl p-7 shadow-xl border border-amber-200 text-sm text-slate-700 space-y-3">
     <h1 className="text-lg font-black text-slate-800">Mungon konfigurimi i Supabase</h1>
+    {supabaseConfigError && (
+      <p className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-xs font-semibold">
+        {supabaseConfigError}
+      </p>
+    )}
     <p>
       Vendosni <code className="bg-slate-100 px-1 rounded">VITE_SUPABASE_URL</code> dhe{' '}
       <code className="bg-slate-100 px-1 rounded">VITE_SUPABASE_ANON_KEY</code> te{' '}
       <code className="bg-slate-100 px-1 rounded">frontend/.env.local</code> (lokalisht) ose te Environment Variables në Vercel,
-      pastaj rinisni aplikacionin.
+      pastaj rinisni aplikacionin. Në Vercel, pas ndryshimit duhet bërë <strong>Redeploy</strong>.
     </p>
     <p className="text-xs text-slate-500">Udhëzimet e plota gjenden te supabase/README.md.</p>
   </div>
@@ -41,7 +46,7 @@ export default function App() {
   // Sesioni i Supabase: rikthehet automatikisht pas rifreskimit të faqes
   useEffect(() => {
     if (!isSupabaseConfigured) return undefined;
-    authApi.getSession().then(setSession);
+    authApi.getSession().then(setSession).catch(() => setSession(null));
     return authApi.onAuthChange(setSession);
   }, []);
 
