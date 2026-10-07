@@ -2,10 +2,10 @@ import React from 'react';
 import { Wallet, Calendar, ArrowDownCircle, ArrowUpCircle, CheckCircle2, TrendingUp, TrendingDown, Scale, Download } from 'lucide-react';
 
 export default function SummaryCard({ monthlyTotal = 0, settlement = {}, onDownloadReport }) {
-  const netBalance = settlement.netBalance || 0;
-  const isOwed = netBalance > 0;
-  const owes = netBalance < 0;
-  const isSettled = netBalance === 0;
+  const netBalance = Number(settlement.netAmount ?? settlement.netBalance ?? 0);
+  const isOwed = netBalance >= 0.01;
+  const owes = netBalance <= -0.01;
+  const isSettled = !isOwed && !owes;
 
   // Caktimi i ngjyrave për Barazimin e Banesës (E gjelbër / E kuqe)
   let balanceBg = 'bg-emerald-50 border-emerald-200 text-emerald-900';
@@ -48,7 +48,7 @@ export default function SummaryCard({ monthlyTotal = 0, settlement = {}, onDownl
 
         <div className="flex items-center mt-3 pt-3 border-t border-white/10 text-xs text-indigo-100">
           <Calendar className="w-3.5 h-3.5 mr-1.5 opacity-80" />
-          <span>Muaji aktual (shpenzime nga xhepi)</span>
+          <span>Muaji aktual (personale + të përbashkëta, nga xhepi yt)</span>
         </div>
       </div>
 

@@ -1,5 +1,5 @@
 // ==============================================================================
-// EXPENSE ENGINE ME CLIENT-SIDE LOCALSTORAGE (100% E PAVARUR NGA SERVERI)
+// EXPENSE ENGINE ME CLIENT-SIDE LOCALSTORAGE (SHPENZIME PERSONALE VS TË PËRBASHKËTA)
 // ==============================================================================
 
 import { authStorage, getAppUsers } from './authApi';
@@ -8,7 +8,7 @@ const STORAGE_KEYS = {
   EXPENSES_DB: 'kalkulimi_expenses_db',
 };
 
-// Shpenzimet fillestare realiste për demonstrim të menjëhershëm
+// Shpenzimet fillestare realiste me ndarje të qartë Personale vs Të Përbashkëta
 const DEFAULT_EXPENSES = [
   {
     id: 1,
@@ -19,6 +19,8 @@ const DEFAULT_EXPENSES = [
     paid_by_name: 'Artan Hoxha',
     group_id: 1,
     is_shared: true,
+    is_personal: false,
+    isPersonal: false,
     created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
     splits: [
       { user_id: 1, amount_owed: 21.84 },
@@ -35,6 +37,8 @@ const DEFAULT_EXPENSES = [
     paid_by_name: 'Blerta Krasniqi',
     group_id: 1,
     is_shared: true,
+    is_personal: false,
+    isPersonal: false,
     created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
     splits: [
       { user_id: 1, amount_owed: 100.00 },
@@ -44,19 +48,17 @@ const DEFAULT_EXPENSES = [
   },
   {
     id: 3,
-    title: 'Blerje Ushqimore në Market',
-    total_amount: 54.00,
+    title: 'Kafe & Drekë Personale',
+    total_amount: 14.50,
     category: 'Ushqim',
     paid_by_user_id: 1,
     paid_by_name: 'Artan Hoxha',
-    group_id: 1,
-    is_shared: true,
+    group_id: null,
+    is_shared: false,
+    is_personal: true,
+    isPersonal: true,
     created_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-    splits: [
-      { user_id: 1, amount_owed: 18.00 },
-      { user_id: 2, amount_owed: 18.00 },
-      { user_id: 3, amount_owed: 18.00 }
-    ]
+    splits: []
   },
   {
     id: 4,
@@ -67,6 +69,8 @@ const DEFAULT_EXPENSES = [
     paid_by_name: 'Dardan Gashi',
     group_id: 1,
     is_shared: true,
+    is_personal: false,
+    isPersonal: false,
     created_at: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString(),
     splits: [
       { user_id: 1, amount_owed: 8.34 },
@@ -76,7 +80,7 @@ const DEFAULT_EXPENSES = [
   }
 ];
 
-// Funksione ndihmëse për të menaxhuar shpenzimet në LocalStorage
+// Leximi i listës së shpenzimeve nga LocalStorage
 const getExpenses = () => {
   try {
     const data = localStorage.getItem(STORAGE_KEYS.EXPENSES_DB);
@@ -84,12 +88,14 @@ const getExpenses = () => {
       localStorage.setItem(STORAGE_KEYS.EXPENSES_DB, JSON.stringify(DEFAULT_EXPENSES));
       return DEFAULT_EXPENSES;
     }
-    return JSON.parse(data);
+    const parsed = JSON.parse(data);
+    return Array.isArray(parsed) ? parsed : DEFAULT_EXPENSES;
   } catch {
     return DEFAULT_EXPENSES;
   }
 };
 
+// Ruajtja e listës së shpenzimeve në LocalStorage
 const saveExpenses = (expenses) => {
   try {
     localStorage.setItem(STORAGE_KEYS.EXPENSES_DB, JSON.stringify(expenses));
@@ -102,27 +108,52 @@ const getAllUsers = () => {
   return getAppUsers();
 };
 
-// Motori i Barazimit (Settlement Engine & Net Balance Calculation)
+// Burimi i vetëm i së vërtetës: a është shpenzimi individual (personal)?
+// Pranon `isPersonal` (fusha e re), si dhe `is_personal` / `is_shared` (të dhëna më të vjetra).
+// Nëse asnjë flamur nuk është vendosur, shpenzimi konsiderohet i përbashkët (default).
+export const isPersonalExpense = (expense) => {
+  if (!expense) return false;
+  if (typeof expense.isPersonal === 'boolean') return expense.isPersonal;
+  if (typeof expense.is_personal === 'boolean') return expense.is_personal;
+  if (typeof expense.is_shared === 'boolean') return !expense.is_shared;
+  return false;
+};
+
+const isInCurrentMonth = (dateStr) => {
+  if (!dateStr) return false;
+  const d = new Date(dateStr);
+  const now = new Date();
+  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+};
+
+// Motori i Barazimit (Settlement Engine & Split Calculations)
 const calculateSummaryForUser = (userId, allExpenses, allUsers) => {
   const currentUserId = Number(userId);
 
-  // 1. Shpenzimet e paguara direkt nga xhepi i këtij përdoruesi këtë muaj
+  // Shpenzimet që i sheh ky përdorues: të gjitha të përbashkëtat + vetëm shpenzimet e TIJ individuale
+  const visibleExpenses = allExpenses.filter(
+    (e) => !isPersonalExpense(e) || Number(e.paid_by_user_id) === currentUserId
+  );
+
+  // 1. Shpenzimet e paguara direkt nga xhepi i këtij përdoruesi këtë muaj (Të gjitha: Personale + Të përbashkëta)
   const paidOutOfPocket = allExpenses
-    .filter((e) => Number(e.paid_by_user_id) === currentUserId)
+    .filter((e) => Number(e.paid_by_user_id) === currentUserId && isInCurrentMonth(e.created_at))
     .reduce((sum, e) => sum + Number(e.total_amount || 0), 0);
 
-  // 2. Llogaritja e bilancit neto (kush kujt i ka borxh)
-  // netBalances: { [otherUserId]: netAmount } (nëse > 0: ai person më ka borxh mua; nëse < 0: unë i kam borxh atij)
+  // 2. Llogaritja e bilancit neto (Barazimi mes banorëve)
+  // RREGULLI: Përfshihen VETËM shpenzimet e përbashkëta (isPersonal: false)
   const balancesMap = {};
 
   allExpenses.forEach((expense) => {
-    if (!expense.is_shared || !expense.splits) return;
+    if (isPersonalExpense(expense) || !expense.splits || expense.splits.length === 0) {
+      return; // Shpenzimet individuale nuk ndikojnë në borxhe
+    }
 
     const payerId = Number(expense.paid_by_user_id);
     const splits = expense.splits || [];
 
     if (payerId === currentUserId) {
-      // Unë kam paguar: të tjerët më kanë borxh pjesën e tyre
+      // Unë kam paguar: banorët e tjerë më kanë borxh pjesën e tyre
       splits.forEach((split) => {
         const debtorId = Number(split.user_id);
         if (debtorId !== currentUserId) {
@@ -138,7 +169,7 @@ const calculateSummaryForUser = (userId, allExpenses, allUsers) => {
     }
   });
 
-  // Ndërtojmë objektin settlementBalance për UI
+  // Ndërtojmë objektin settlementBalance për kartelën e barazimit
   const breakdown = Object.keys(balancesMap).map((idStr) => {
     const otherId = Number(idStr);
     const otherUser = allUsers.find((u) => u.id === otherId) || { name: `Anëtari ${otherId}` };
@@ -167,7 +198,7 @@ const calculateSummaryForUser = (userId, allExpenses, allUsers) => {
 
   // 3. Shpërndarja e Kategorive për Grafiket (Category Breakdown)
   const categoryTotals = {};
-  allExpenses.forEach((exp) => {
+  visibleExpenses.forEach((exp) => {
     const cat = exp.category || 'Të tjera';
     categoryTotals[cat] = (categoryTotals[cat] || 0) + Number(exp.total_amount || 0);
   });
@@ -182,14 +213,19 @@ const calculateSummaryForUser = (userId, allExpenses, allUsers) => {
     };
   });
 
-  // Përgatitja e listës së shpenzimeve me flamujt e duhur për UI
-  const enrichedExpenses = allExpenses.map((exp) => {
+  // Përgatitja e listës së shpenzimeve me flamujt e duhur
+  const enrichedExpenses = visibleExpenses.map((exp) => {
     const isPayer = Number(exp.paid_by_user_id) === currentUserId;
+    const isSharedExpense = !isPersonalExpense(exp);
     const mySplit = exp.splits?.find((s) => Number(s.user_id) === currentUserId);
+
     return {
       ...exp,
+      is_shared: isSharedExpense,
+      is_personal: !isSharedExpense,
+      isPersonal: !isSharedExpense,
       is_payer: isPayer ? 1 : 0,
-      my_split_amount: mySplit ? mySplit.amount_owed : (isPayer ? exp.total_amount : 0)
+      my_split_amount: isSharedExpense && mySplit ? mySplit.amount_owed : (isPayer ? exp.total_amount : 0)
     };
   });
 
@@ -215,7 +251,7 @@ const calculateSummaryForUser = (userId, allExpenses, allUsers) => {
 export const expenseApi = {
   // 1. Merr përmbledhjen e shpenzimeve për përdoruesin e kyçur
   getSummary: async (userId = 'me') => {
-    await new Promise((resolve) => setTimeout(resolve, 80));
+    await new Promise((r) => setTimeout(r, 60));
     const currentUser = authStorage.getUser() || { id: 1, name: 'Artan Hoxha' };
     const targetUserId = userId === 'me' ? currentUser.id : Number(userId);
 
@@ -225,27 +261,37 @@ export const expenseApi = {
     return calculateSummaryForUser(targetUserId, expenses, users);
   },
 
-  // 2. Regjistron një shpenzim të ri
-  createExpense: async ({ title, total_amount, category, is_shared = true }) => {
-    await new Promise((resolve) => setTimeout(resolve, 100));
+  // 2. Regjistron një shpenzim të ri (Personal ose i Përbashkët)
+  createExpense: async ({ title, total_amount, category, isPersonal, is_shared = true, is_personal = false, member_count = 3 }) => {
+    await new Promise((r) => setTimeout(r, 80));
     const currentUser = authStorage.getUser() || { id: 1, name: 'Artan Hoxha', group_id: 1 };
     const expenses = getExpenses();
-    const users = getAllUsers().filter((u) => u.group_id === (currentUser.group_id || 1));
-    const memberCount = Math.max(users.length, 3); // Minimumi 3 anëtarë në grup
+    const users = getAllUsers();
 
+    const isSharedExpense = !isPersonalExpense({ isPersonal, is_personal, is_shared });
+    const count = Number(member_count) || Math.max(users.length, 3);
     const parsedAmount = parseFloat(total_amount);
-    if (!title || isNaN(parsedAmount) || parsedAmount <= 0) {
-      throw new Error('Titulli dhe një shumë pozitive janë të detyrueshme.');
+
+    if (!title || !title.trim()) {
+      throw new Error('Ju lutem shkruani një titull për shpenzimin.');
     }
 
-    // Llogarit ndarjen e barabartë
-    const splitPerPerson = Number((parsedAmount / memberCount).toFixed(2));
-    const splits = (users.length > 0 ? users : [{ id: 1 }, { id: 2 }, { id: 3 }]).map((u, index) => ({
-      user_id: u.id,
-      amount_owed: index === memberCount - 1
-        ? Number((parsedAmount - splitPerPerson * (memberCount - 1)).toFixed(2))
-        : splitPerPerson
-    }));
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+      throw new Error('Ju lutem vendosni një shumë pozitive në euro.');
+    }
+
+    // Ndarja e barabartë nëse është shpenzim i përbashkët
+    let splits = [];
+    if (isSharedExpense) {
+      const splitPerPerson = Number((parsedAmount / count).toFixed(2));
+      const activeMembers = users.length > 0 ? users.slice(0, count) : [{ id: 1 }, { id: 2 }, { id: 3 }];
+      splits = activeMembers.map((u, index) => ({
+        user_id: u.id,
+        amount_owed: index === count - 1
+          ? Number((parsedAmount - splitPerPerson * (count - 1)).toFixed(2))
+          : splitPerPerson
+      }));
+    }
 
     const newExpense = {
       id: expenses.length > 0 ? Math.max(...expenses.map((e) => e.id || 0)) + 1 : 1,
@@ -254,13 +300,15 @@ export const expenseApi = {
       category: category || 'Të tjera',
       paid_by_user_id: currentUser.id,
       paid_by_name: currentUser.name,
-      group_id: is_shared ? (currentUser.group_id || 1) : null,
-      is_shared: Boolean(is_shared),
+      group_id: isSharedExpense ? (currentUser.group_id || 1) : null,
+      is_shared: isSharedExpense,
+      is_personal: !isSharedExpense,
+      isPersonal: !isSharedExpense,
       created_at: new Date().toISOString(),
-      splits: is_shared ? splits : []
+      splits
     };
 
-    expenses.unshift(newExpense); // Shtohet në krye të listës
+    expenses.unshift(newExpense);
     saveExpenses(expenses);
 
     return {
@@ -270,83 +318,88 @@ export const expenseApi = {
     };
   },
 
-  // 3. Përditëson një shpenzim ekzistues (Edit)
-  updateExpense: async (id, { title, total_amount, category, is_shared }) => {
-    await new Promise((resolve) => setTimeout(resolve, 100));
+  // 3. Përditëson një shpenzim ekzistues
+  updateExpense: async (id, { title, total_amount, category, isPersonal, is_shared, is_personal, member_count }) => {
+    await new Promise((r) => setTimeout(r, 80));
     const expenses = getExpenses();
-    const expenseIndex = expenses.findIndex((e) => Number(e.id) === Number(id));
+    const index = expenses.findIndex((e) => Number(e.id) === Number(id));
 
-    if (expenseIndex === -1) {
-      throw new Error(`Shpenzimi me ID ${id} nuk u gjet.`);
+    if (index === -1) {
+      throw new Error(`Shpenzimi nuk u gjet.`);
     }
 
-    const currentExpense = expenses[expenseIndex];
-    const parsedAmount = total_amount !== undefined ? parseFloat(total_amount) : currentExpense.total_amount;
-    const shouldBeShared = is_shared !== undefined ? Boolean(is_shared) : currentExpense.is_shared;
+    const current = expenses[index];
+    const parsedAmount = total_amount !== undefined ? parseFloat(total_amount) : current.total_amount;
+    
+    let isSharedExpense = !isPersonalExpense(current);
+    if (isPersonal !== undefined) {
+      isSharedExpense = !Boolean(isPersonal);
+    } else if (is_personal !== undefined) {
+      isSharedExpense = !Boolean(is_personal);
+    } else if (is_shared !== undefined) {
+      isSharedExpense = Boolean(is_shared);
+    }
 
     const users = getAllUsers();
-    const memberCount = Math.max(users.length, 3);
-    const splitPerPerson = Number((parsedAmount / memberCount).toFixed(2));
+    const count = Number(member_count) || Math.max(users.length, 3);
+    const splitPerPerson = Number((parsedAmount / count).toFixed(2));
 
-    const updatedSplits = shouldBeShared
-      ? (users.length > 0 ? users : [{ id: 1 }, { id: 2 }, { id: 3 }]).map((u, index) => ({
+    const updatedSplits = isSharedExpense
+      ? (users.length > 0 ? users.slice(0, count) : [{ id: 1 }, { id: 2 }, { id: 3 }]).map((u, i) => ({
           user_id: u.id,
-          amount_owed: index === memberCount - 1
-            ? Number((parsedAmount - splitPerPerson * (memberCount - 1)).toFixed(2))
+          amount_owed: i === count - 1 
+            ? Number((parsedAmount - splitPerPerson * (count - 1)).toFixed(2)) 
             : splitPerPerson
         }))
       : [];
 
-    const updatedExpense = {
-      ...currentExpense,
-      title: title !== undefined ? title.trim() : currentExpense.title,
+    const updated = {
+      ...current,
+      title: title !== undefined ? title.trim() : current.title,
       total_amount: parsedAmount,
-      category: category !== undefined ? category : currentExpense.category,
-      is_shared: shouldBeShared,
+      category: category !== undefined ? category : current.category,
+      is_shared: isSharedExpense,
+      is_personal: !isSharedExpense,
+      isPersonal: !isSharedExpense,
+      group_id: isSharedExpense ? (current.group_id || 1) : null,
       splits: updatedSplits
     };
 
-    expenses[expenseIndex] = updatedExpense;
+    expenses[index] = updated;
     saveExpenses(expenses);
 
     return {
       success: true,
       message: 'Shpenzimi u përditësua me sukses!',
-      data: updatedExpense
+      data: updated
     };
   },
 
-  // 4. Fshin një shpenzim (Delete)
+  // 4. Fshin një shpenzim
   deleteExpense: async (id) => {
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await new Promise((r) => setTimeout(r, 80));
     const expenses = getExpenses();
-    const filtered = expenses.filter((e) => Number(e.id) !== Number(id));
-
-    saveExpenses(filtered);
-
-    return {
-      success: true,
-      message: `Shpenzimi me ID ${id} u fshi me sukses.`
-    };
+    saveExpenses(expenses.filter((e) => Number(e.id) !== Number(id)));
+    return { success: true, message: `Shpenzimi u fshi me sukses.` };
   },
 
-  // 5. Gjeneron raportin e plotë të barazimit për PDF
+  // 5. Gjeneron raportin e barazimit mujor për grupin (VETËM shpenzimet e përbashkëta)
   getGroupReport: async (groupId = 1) => {
-    await new Promise((resolve) => setTimeout(resolve, 100));
-    const expenses = getExpenses().filter((e) => e.is_shared);
+    await new Promise((r) => setTimeout(r, 80));
+    // Përfshihen VETËM shpenzimet e përbashkëta
+    const sharedExpenses = getExpenses().filter((e) => !isPersonalExpense(e));
     const users = getAllUsers();
 
-    const totalGroupExpenses = expenses.reduce((sum, e) => sum + Number(e.total_amount || 0), 0);
+    const totalGroupExpenses = sharedExpenses.reduce((sum, e) => sum + Number(e.total_amount || 0), 0);
     const memberCount = Math.max(users.length, 3);
     const fairSharePerPerson = Number((totalGroupExpenses / memberCount).toFixed(2));
 
-    // Sa ka paguar secili anëtar
     const paidByMember = {};
     users.forEach((u) => {
       paidByMember[u.id] = 0;
     });
 
-    expenses.forEach((e) => {
+    sharedExpenses.forEach((e) => {
       const pId = Number(e.paid_by_user_id);
       paidByMember[pId] = (paidByMember[pId] || 0) + Number(e.total_amount || 0);
     });
@@ -365,23 +418,22 @@ export const expenseApi = {
       };
     });
 
-    // Udhëzimet e pagesave (Kush kujt duhet t'i japë para)
     const creditors = membersSummary.filter((m) => m.netBalance > 0.01).map((m) => ({ ...m, remaining: m.netBalance }));
     const debtors = membersSummary.filter((m) => m.netBalance < -0.01).map((m) => ({ ...m, remaining: Math.abs(m.netBalance) }));
     const settlements = [];
 
-    debtors.forEach((debtor) => {
-      creditors.forEach((creditor) => {
-        if (debtor.remaining > 0.01 && creditor.remaining > 0.01) {
-          const payment = Math.min(debtor.remaining, creditor.remaining);
+    debtors.forEach((d) => {
+      creditors.forEach((c) => {
+        if (d.remaining > 0.01 && c.remaining > 0.01) {
+          const payment = Math.min(d.remaining, c.remaining);
           settlements.push({
-            fromName: debtor.name,
-            toName: creditor.name,
+            fromName: d.name,
+            toName: c.name,
             amount: Number(payment.toFixed(2)),
-            text: `${debtor.name} -> i jep ${Number(payment.toFixed(2))} € -> ${creditor.name}`
+            text: `${d.name} -> i jep ${Number(payment.toFixed(2))} € -> ${c.name}`
           });
-          debtor.remaining -= payment;
-          creditor.remaining -= payment;
+          d.remaining -= payment;
+          c.remaining -= payment;
         }
       });
     });
@@ -392,7 +444,7 @@ export const expenseApi = {
       fairSharePerPerson,
       members: membersSummary,
       settlementInstructions: settlements,
-      expenses
+      expenses: sharedExpenses
     };
   }
 };
