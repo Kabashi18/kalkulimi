@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Check, Users, User, CalendarDays, Zap, Home, Utensils, Wifi, Droplets, Receipt, Sparkles, Info } from 'lucide-react';
 import { expenseApi, isPersonalExpense } from '../api/expenseApi';
 import { householdApi } from '../api/householdApi';
-import { todayISO } from '../utils/balances';
+import { todayISO, computeSplitAmounts } from '../utils/balances';
 
 const CATEGORIES = [
   { id: 'Rrymë', name: 'Rrymë', Icon: Zap, color: 'text-amber-600 bg-amber-50 border-amber-200' },
@@ -38,6 +38,21 @@ export default function AddExpenseScreen({ onBack, onExpenseAdded, currentUserId
 
   // Kush e pagoi (si parazgjedhje: përdoruesi i kyçur)
   const [paidBy, setPaidBy] = useState(expenseToEdit?.paid_by_user_id || currentUserId);
+
+  // Mënyra e ndarjes: 'equal' | 'exact' (shuma në €) | 'percent' (përqindje)
+  const [splitMode, setSplitMode] = useState(expenseToEdit?.split_mode || 'equal');
+  const [splitValues, setSplitValues] = useState(() => {
+    if (!expenseToEdit || !expenseToEdit.split_mode || expenseToEdit.split_mode === 'equal') return {};
+    const total = Number(expenseToEdit.total_amount) || 1;
+    return Object.fromEntries(
+      (expenseToEdit.splits || []).map((sp) => [
+        sp.user_id,
+        expenseToEdit.split_mode === 'percent'
+          ? String(Math.round((sp.amount_owed / total) * 10000) / 100)
+          : String(sp.amount_owed)
+      ])
+    );
+  });
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
 
@@ -53,6 +68,10 @@ export default function AddExpenseScreen({ onBack, onExpenseAdded, currentUserId
 
   const selected = selectedIds || [];
   const memberCount = selected.length;
+  // Rendi i anëtarëve në ndarje ndjek listën e banesës (që shumat të mos ndërrojnë vend)
+  const orderedSelected = members.length
+    ? members.filter((m) => selected.includes(m.id)).map((m) => m.id)
+    : selected;
 
   const toggleMember = (id) => {
     setSelectedIds((prev) => {
@@ -66,6 +85,26 @@ export default function AddExpenseScreen({ onBack, onExpenseAdded, currentUserId
   const splitPerPerson = isShared && memberCount > 0 
     ? (numericAmount / memberCount).toFixed(2) 
     : numericAmount.toFixed(2);
+
+  const split = computeSplitAmounts(numericAmount, orderedSelected, splitMode, splitValues);
+
+  // Kur zgjidhet "Shuma" ose "%", fushat plotësohen me ndarjen e barabartë si pikënisje
+  const changeSplitMode = (mode) => {
+    setSplitMode(mode);
+    if (mode === 'equal' || orderedSelected.length === 0) return;
+    const n = orderedSelected.length;
+    if (mode === 'exact') {
+      const eq = computeSplitAmounts(numericAmount, orderedSelected, 'equal').amounts;
+      setSplitValues(Object.fromEntries(orderedSelected.map((id, i) => [id, eq[i].toFixed(2)])));
+    } else {
+      const base = Math.floor(10000 / n) / 100;
+      setSplitValues(
+        Object.fromEntries(
+          orderedSelected.map((id, i) => [id, String(i === n - 1 ? Math.round((100 - base * (n - 1)) * 100) / 100 : base)])
+        )
+      );
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -86,6 +125,11 @@ export default function AddExpenseScreen({ onBack, onExpenseAdded, currentUserId
       return;
     }
 
+    if (isShared && splitMode !== 'equal' && split.error) {
+      setErrorMsg(split.error);
+      return;
+    }
+
     try {
       setLoading(true);
 
@@ -94,7 +138,9 @@ export default function AddExpenseScreen({ onBack, onExpenseAdded, currentUserId
         total_amount: numericAmount,
         category: category,
         isPersonal: !isShared,
-        member_ids: isShared ? selected : [],
+        member_ids: isShared ? orderedSelected : [],
+        split_mode: isShared ? splitMode : 'equal',
+        split_amounts: isShared && splitMode !== 'equal' ? split.amounts : null,
         paid_by: isShared ? paidBy : currentUserId,
         expense_date: expenseDate
       };
@@ -332,16 +378,81 @@ export default function AddExpenseScreen({ onBack, onExpenseAdded, currentUserId
               </p>
             )}
 
-            {/* Llogaritja live e ndarjes për person */}
-            <div className="bg-white border border-indigo-200 rounded-2xl p-3 flex items-center justify-between shadow-xs">
-              <div className="flex items-center space-x-2 text-indigo-900">
-                <Users className="w-4 h-4 text-indigo-600" />
-                <span className="text-xs font-semibold">Pjesa për person:</span>
+            {/* Mënyra e ndarjes */}
+            {memberCount > 1 && (
+              <div className="grid grid-cols-3 p-1 bg-white/70 border border-indigo-200 rounded-xl gap-1">
+                {[
+                  { id: 'equal', label: 'Barabartë' },
+                  { id: 'exact', label: 'Shuma €' },
+                  { id: 'percent', label: 'Përqindje %' }
+                ].map((opt) => (
+                  <button
+                    type="button"
+                    key={opt.id}
+                    onClick={() => changeSplitMode(opt.id)}
+                    className={`py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                      splitMode === opt.id ? 'bg-indigo-600 text-white shadow-sm' : 'text-indigo-800 hover:bg-indigo-100/60'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
               </div>
-              <span className="text-base font-black text-indigo-700">
-                {splitPerPerson} €
-              </span>
-            </div>
+            )}
+
+            {splitMode === 'equal' || memberCount <= 1 ? (
+              /* Llogaritja live e ndarjes për person */
+              <div className="bg-white border border-indigo-200 rounded-2xl p-3 flex items-center justify-between shadow-xs">
+                <div className="flex items-center space-x-2 text-indigo-900">
+                  <Users className="w-4 h-4 text-indigo-600" />
+                  <span className="text-xs font-semibold">Pjesa për person:</span>
+                </div>
+                <span className="text-base font-black text-indigo-700">
+                  {splitPerPerson} €
+                </span>
+              </div>
+            ) : (
+              /* Ndarje e personalizuar: një fushë për secilin anëtar */
+              <div className="bg-white border border-indigo-200 rounded-2xl p-3 space-y-2 shadow-xs">
+                {orderedSelected.map((id, i) => {
+                  const m = members.find((x) => x.id === id);
+                  return (
+                    <div key={id} className="flex items-center justify-between space-x-2">
+                      <span className="text-xs font-semibold text-slate-700 truncate flex-1">
+                        {id === currentUserId ? 'Unë' : m?.name || '...'}
+                      </span>
+                      <div className="relative w-28 shrink-0">
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          inputMode="decimal"
+                          value={splitValues[id] ?? ''}
+                          onChange={(e) => setSplitValues((prev) => ({ ...prev, [id]: e.target.value }))}
+                          className="w-full bg-slate-50 border border-slate-200 focus:border-indigo-500 rounded-xl pl-3 pr-7 py-1.5 text-sm font-bold text-slate-800 outline-none text-right"
+                        />
+                        <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
+                          {splitMode === 'percent' ? '%' : '€'}
+                        </span>
+                      </div>
+                      {splitMode === 'percent' && (
+                        <span className="w-16 text-right text-[11px] font-semibold text-indigo-700 shrink-0">
+                          {split.amounts[i]?.toFixed(2)} €
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+                <div
+                  className={`mt-1 pt-2 border-t border-slate-100 text-[11px] font-bold flex items-center space-x-1 ${
+                    split.error ? 'text-rose-600' : 'text-emerald-600'
+                  }`}
+                >
+                  {split.error ? <Info className="w-3.5 h-3.5" /> : <Check className="w-3.5 h-3.5" />}
+                  <span>{split.error || `Gjithçka e ndarë: ${(split.assignedCents / 100).toFixed(2)} €`}</span>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <div className="bg-slate-100/80 border border-slate-200 rounded-2xl p-3.5 flex items-center space-x-2.5 text-slate-600 text-xs">

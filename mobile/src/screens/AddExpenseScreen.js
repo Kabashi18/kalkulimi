@@ -3,7 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator,
 import { Ionicons } from '@expo/vector-icons';
 import { expenseApi } from '../api/expenseApi';
 import { householdApi } from '../api/householdApi';
-import { isPersonalExpense, expenseDateOf, todayISO } from '../utils/balances';
+import { isPersonalExpense, expenseDateOf, todayISO, computeSplitAmounts } from '../utils/balances';
 
 const CATEGORIES = [
   { id: 'Rrymë', name: 'Rrymë', icon: 'flash', color: '#d97706' },
@@ -43,6 +43,18 @@ export default function AddExpenseScreen({ currentUserId, household, expenseToEd
   const [paidBy, setPaidBy] = useState(expenseToEdit?.paid_by_user_id || currentUserId);
   const [expenseDate, setExpenseDate] = useState(expenseToEdit?.expense_date || todayISO());
   const today = todayISO();
+  // Mënyra e ndarjes: 'equal' | 'exact' (shuma në €) | 'percent' (përqindje)
+  const [splitMode, setSplitMode] = useState(expenseToEdit?.split_mode || 'equal');
+  const [splitValues, setSplitValues] = useState(() => {
+    if (!expenseToEdit || !expenseToEdit.split_mode || expenseToEdit.split_mode === 'equal') return {};
+    const total = Number(expenseToEdit.total_amount) || 1;
+    return Object.fromEntries(
+      (expenseToEdit.splits || []).map((sp) => [
+        sp.user_id,
+        expenseToEdit.split_mode === 'percent' ? String(Math.round((sp.amount_owed / total) * 10000) / 100) : String(sp.amount_owed)
+      ])
+    );
+  });
   const [members, setMembers] = useState([]);
   const [selectedIds, setSelectedIds] = useState(expenseToEdit?.member_ids?.length ? expenseToEdit.member_ids : null);
   const [loading, setLoading] = useState(false);
@@ -59,8 +71,28 @@ export default function AddExpenseScreen({ currentUserId, household, expenseToEd
   }, [household.id]);
 
   const selected = selectedIds || [];
+  // Rendi i anëtarëve në ndarje ndjek listën e banesës
+  const orderedSelected = members.length ? members.filter((m) => selected.includes(m.id)).map((m) => m.id) : selected;
   const numericAmount = parseFloat(String(amount).replace(',', '.')) || 0;
   const perPerson = isShared && selected.length > 0 ? numericAmount / selected.length : numericAmount;
+  const parsedValues = Object.fromEntries(Object.entries(splitValues).map(([k, v]) => [k, String(v).replace(',', '.')]));
+  const split = computeSplitAmounts(numericAmount, orderedSelected, splitMode, parsedValues);
+
+  // Kur zgjidhet "Shuma" ose "%", fushat plotësohen me ndarjen e barabartë si pikënisje
+  const changeSplitMode = (mode) => {
+    setSplitMode(mode);
+    if (mode === 'equal' || orderedSelected.length === 0) return;
+    const n = orderedSelected.length;
+    if (mode === 'exact') {
+      const eq = computeSplitAmounts(numericAmount, orderedSelected, 'equal').amounts;
+      setSplitValues(Object.fromEntries(orderedSelected.map((id, i) => [id, eq[i].toFixed(2)])));
+    } else {
+      const base = Math.floor(10000 / n) / 100;
+      setSplitValues(
+        Object.fromEntries(orderedSelected.map((id, i) => [id, String(i === n - 1 ? Math.round((100 - base * (n - 1)) * 100) / 100 : base)]))
+      );
+    }
+  };
   const shortName = (m) => (m.id === currentUserId ? 'Unë' : m.name.split(' ')[0]);
 
   const toggleMember = (id) =>
@@ -68,12 +100,18 @@ export default function AddExpenseScreen({ currentUserId, household, expenseToEd
 
   const handleSave = async () => {
     setErrorMsg(null);
+    if (isShared && splitMode !== 'equal' && split.error) {
+      setErrorMsg(split.error);
+      return;
+    }
     const payload = {
       title,
       total_amount: numericAmount,
       category,
       isPersonal: !isShared,
-      member_ids: isShared ? selected : [],
+      member_ids: isShared ? orderedSelected : [],
+      split_mode: isShared ? splitMode : 'equal',
+      split_amounts: isShared && splitMode !== 'equal' ? split.amounts : null,
       paid_by: isShared ? paidBy : currentUserId,
       expense_date: expenseDate
     };
@@ -218,10 +256,59 @@ export default function AddExpenseScreen({ currentUserId, household, expenseToEd
                   Je i vetëm në banesë. Fto shokët me kodin {household.code}.
                 </Text>
               )}
-              <View className="bg-white border border-indigo-200 rounded-2xl p-3 flex-row justify-between items-center mt-1">
-                <Text className="text-xs font-semibold text-indigo-900">Pjesa për person:</Text>
-                <Text className="text-base font-black text-indigo-700">{perPerson.toFixed(2)} €</Text>
-              </View>
+              {/* Mënyra e ndarjes */}
+              {selected.length > 1 && (
+                <View className="flex-row bg-white border border-indigo-200 rounded-xl p-1 mb-2">
+                  {[
+                    { id: 'equal', label: 'Barabartë' },
+                    { id: 'exact', label: 'Shuma €' },
+                    { id: 'percent', label: 'Përqindje %' }
+                  ].map((opt) => (
+                    <TouchableOpacity
+                      key={opt.id}
+                      onPress={() => changeSplitMode(opt.id)}
+                      className={`flex-1 py-1.5 rounded-lg items-center ${splitMode === opt.id ? 'bg-indigo-600' : ''}`}
+                    >
+                      <Text className={`text-[11px] font-bold ${splitMode === opt.id ? 'text-white' : 'text-indigo-800'}`}>{opt.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+
+              {splitMode === 'equal' || selected.length <= 1 ? (
+                <View className="bg-white border border-indigo-200 rounded-2xl p-3 flex-row justify-between items-center mt-1">
+                  <Text className="text-xs font-semibold text-indigo-900">Pjesa për person:</Text>
+                  <Text className="text-base font-black text-indigo-700">{perPerson.toFixed(2)} €</Text>
+                </View>
+              ) : (
+                <View className="bg-white border border-indigo-200 rounded-2xl p-3 mt-1">
+                  {orderedSelected.map((id, i) => {
+                    const m = members.find((x) => x.id === id);
+                    return (
+                      <View key={id} className="flex-row items-center mb-2">
+                        <Text numberOfLines={1} className="flex-1 text-xs font-semibold text-slate-700">
+                          {m ? shortName(m) : '...'}
+                        </Text>
+                        <View className="flex-row items-center bg-slate-50 border border-slate-200 rounded-xl px-2 w-28">
+                          <TextInput
+                            value={splitValues[id] ?? ''}
+                            onChangeText={(t) => setSplitValues((prev) => ({ ...prev, [id]: t }))}
+                            keyboardType="decimal-pad"
+                            className="flex-1 py-1.5 text-sm font-bold text-slate-800 text-right"
+                          />
+                          <Text className="text-xs font-bold text-slate-400 ml-1">{splitMode === 'percent' ? '%' : '€'}</Text>
+                        </View>
+                        {splitMode === 'percent' && (
+                          <Text className="w-16 text-right text-[11px] font-semibold text-indigo-700">{split.amounts[i]?.toFixed(2)} €</Text>
+                        )}
+                      </View>
+                    );
+                  })}
+                  <Text className={`text-[11px] font-bold pt-2 border-t border-slate-100 ${split.error ? 'text-rose-600' : 'text-emerald-600'}`}>
+                    {split.error || `✓ Gjithçka e ndarë: ${(split.assignedCents / 100).toFixed(2)} €`}
+                  </Text>
+                </View>
+              )}
             </View>
           ) : (
             <View className="bg-slate-100 border border-slate-200 rounded-2xl p-3.5 mb-4">

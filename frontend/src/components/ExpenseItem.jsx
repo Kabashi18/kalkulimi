@@ -78,6 +78,11 @@ export default function ExpenseItem({ expense, currentUserId = 1, onEdit, onDele
                 <span>Personale</span>
               </span>
             )}
+            {isShared && expense.split_mode && expense.split_mode !== 'equal' && (
+              <span className="bg-amber-50 text-amber-700 text-[9px] font-bold px-2 py-0.5 rounded-full border border-amber-200">
+                {expense.split_mode === 'percent' ? 'Me përqindje' : 'Shuma të ndryshme'}
+              </span>
+            )}
           </div>
         </div>
       </div>

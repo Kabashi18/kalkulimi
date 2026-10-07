@@ -41,6 +41,11 @@ export default function ExpenseItem({ expense, onOptions }) {
               {isShared ? 'E përbashkët' : 'Personale'}
             </Text>
           </View>
+          {isShared && expense.split_mode && expense.split_mode !== 'equal' && (
+            <View className="px-2 py-0.5 rounded-full border bg-amber-50 border-amber-200 ml-1">
+              <Text className="text-[9px] font-bold text-amber-700">{expense.split_mode === 'percent' ? 'Me përqindje' : 'Shuma të ndryshme'}</Text>
+            </View>
+          )}
         </View>
       </View>
 

@@ -184,3 +184,64 @@ export const computeCategoryBreakdown = (expenses = []) => {
     percentage: all > 0 ? Math.round((cents / all) * 100) : 0
   }));
 };
+
+/**
+ * Llogarit pjesën në euro të secilit anëtar për një shpenzim të përbashkët.
+ *   mode 'equal'   -> ndarje e barabartë (centët e mbetur shkojnë te të fundit, si në databazë)
+ *   mode 'exact'   -> `values` janë shuma në euro; duhet të japin saktësisht totalin
+ *   mode 'percent' -> `values` janë përqindje; duhet të japin 100%. Centët ndahen me metodën
+ *                     e "mbetjes më të madhe", që shuma e pjesëve të jetë gjithmonë sa totali.
+ * Kthen { amounts: [euro...] (në rendin e `memberIds`), error: string|null, assignedCents, totalCents }.
+ */
+export const computeSplitAmounts = (total, memberIds = [], mode = 'equal', values = {}) => {
+  const totalCents = toCents(total);
+  const n = memberIds.length;
+  const result = (cents, error = null) => ({
+    amounts: cents.map(toEuro),
+    error,
+    assignedCents: cents.reduce((a, b) => a + b, 0),
+    totalCents
+  });
+
+  if (n === 0) return result([], 'Zgjidhni të paktën një anëtar për ndarjen.');
+
+  if (mode === 'exact') {
+    const cents = memberIds.map((id) => toCents(values[id]));
+    if (cents.some((c) => c < 0)) return result(cents, 'Shumat nuk mund të jenë negative.');
+    const sum = cents.reduce((a, b) => a + b, 0);
+    if (sum !== totalCents) {
+      const diff = toEuro(Math.abs(totalCents - sum)).toFixed(2);
+      return result(cents, sum < totalCents ? `Mbeten edhe ${diff} € për t'u ndarë.` : `Keni ndarë ${diff} € më shumë se totali.`);
+    }
+    return result(cents);
+  }
+
+  if (mode === 'percent') {
+    const pcts = memberIds.map((id) => Number(values[id] || 0));
+    if (pcts.some((p) => p < 0)) return result(memberIds.map(() => 0), 'Përqindjet nuk mund të jenë negative.');
+    const pctSum = Math.round(pcts.reduce((a, b) => a + b, 0) * 100) / 100;
+    // Toleranca ±0.1% lejon p.sh. 33.33% × 3 = 99.99%; përqindjet trajtohen si proporcione
+    if (Math.abs(pctSum - 100) > 0.1 || pctSum === 0) {
+      return result(pcts.map((p) => Math.floor((totalCents * p) / 100)), `Përqindjet japin ${pctSum}% - duhet të jenë gjithsej 100%.`);
+    }
+    const raw = pcts.map((p) => (totalCents * p) / pctSum);
+    const cents = raw.map(Math.floor);
+    // Centët e mbetur u jepen atyre me pjesën dhjetore më të madhe
+    let left = totalCents - cents.reduce((a, b) => a + b, 0);
+    raw
+      .map((r, i) => ({ i, frac: r - Math.floor(r) }))
+      .sort((a, b) => b.frac - a.frac || a.i - b.i)
+      .forEach(({ i }) => {
+        if (left > 0) {
+          cents[i] += 1;
+          left -= 1;
+        }
+      });
+    return result(cents);
+  }
+
+  // equal
+  const base = Math.floor(totalCents / n);
+  const cents = memberIds.map((_, i) => (i === n - 1 ? totalCents - base * (n - 1) : base));
+  return result(cents);
+};

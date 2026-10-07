@@ -55,6 +55,11 @@ alter table public.expenses alter column expense_date set default current_date;
 alter table public.expenses alter column expense_date set not null;
 create index if not exists expenses_household_date_idx on public.expenses (household_id, expense_date desc);
 
+-- Mënyra e ndarjes: 'equal' (barabartë), 'exact' (shuma të sakta), 'percent' (përqindje)
+alter table public.expenses
+  add column if not exists split_mode text not null default 'equal'
+  check (split_mode in ('equal', 'exact', 'percent'));
+
 -- Pjesa që i takon secilit anëtar nga një shpenzim i përbashkët
 create table if not exists public.expense_splits (
   expense_id   bigint not null references public.expenses (id) on delete cascade,
@@ -255,10 +260,14 @@ $$;
 -- p_member_ids = anëtarët mes të cilëve ndahet (injorohet për shpenzimet personale)
 -- p_paid_by    = kush e pagoi (null -> përdoruesi i kyçur); shpenzimet personale paguhen gjithmonë nga vetja
 -- p_expense_date = data e shpenzimit (null -> sot gjatë krijimit / pa ndryshim gjatë përditësimit)
+-- p_split_mode   = 'equal' | 'exact' | 'percent'
+-- p_split_amounts = shumat në euro për secilin nga p_member_ids (në të njëjtin rend), për 'exact' / 'percent'.
+--                   Aplikacioni i kthen përqindjet në euro; databaza kontrollon që shuma = totali.
 
 -- Versionet e vjetra hiqen, përndryshe PostgREST nuk di cilin të thërrasë
 drop function if exists public.save_expense(bigint, text, numeric, text, boolean, uuid[]);
 drop function if exists public.save_expense(bigint, text, numeric, text, boolean, uuid[], uuid);
+drop function if exists public.save_expense(bigint, text, numeric, text, boolean, uuid[], uuid, date);
 
 create or replace function public.save_expense(
   p_id bigint,
@@ -268,7 +277,9 @@ create or replace function public.save_expense(
   p_is_personal boolean,
   p_member_ids uuid[],
   p_paid_by uuid default null,
-  p_expense_date date default null
+  p_expense_date date default null,
+  p_split_mode text default 'equal',
+  p_split_amounts numeric[] default null
 )
 returns public.expenses
 language plpgsql
@@ -279,6 +290,7 @@ declare
   hh uuid := public.my_household_id();
   saved public.expenses;
   payer uuid := coalesce(p_paid_by, auth.uid());
+  mode text := case when coalesce(p_is_personal, false) then 'equal' else coalesce(p_split_mode, 'equal') end;
   members uuid[];
   member_count int;
   base_share numeric(10, 2);
@@ -302,10 +314,13 @@ begin
   if p_expense_date > current_date + 1 then
     raise exception 'Data e shpenzimit nuk mund të jetë në të ardhmen.';
   end if;
+  if mode not in ('equal', 'exact', 'percent') then
+    raise exception 'Mënyrë e panjohur ndarjeje.';
+  end if;
 
   if p_id is null then
-    insert into public.expenses (household_id, paid_by, created_by, title, total_amount, category, is_personal, expense_date)
-    values (hh, payer, auth.uid(), trim(p_title), round(p_total_amount, 2), coalesce(p_category, 'Të tjera'), coalesce(p_is_personal, false), coalesce(p_expense_date, current_date))
+    insert into public.expenses (household_id, paid_by, created_by, title, total_amount, category, is_personal, expense_date, split_mode)
+    values (hh, payer, auth.uid(), trim(p_title), round(p_total_amount, 2), coalesce(p_category, 'Të tjera'), coalesce(p_is_personal, false), coalesce(p_expense_date, current_date), mode)
     returning * into saved;
   else
     update public.expenses
@@ -314,7 +329,8 @@ begin
         total_amount = round(p_total_amount, 2),
         category = coalesce(p_category, 'Të tjera'),
         is_personal = coalesce(p_is_personal, false),
-        expense_date = coalesce(p_expense_date, expense_date)
+        expense_date = coalesce(p_expense_date, expense_date),
+        split_mode = mode
     where id = p_id
       and household_id = hh
       and (paid_by = auth.uid() or created_by = auth.uid())
@@ -327,7 +343,36 @@ begin
     delete from public.expense_splits where expense_id = saved.id;
   end if;
 
-  if not saved.is_personal then
+  if not saved.is_personal and mode <> 'equal' then
+    -- Ndarje e personalizuar: shumat vijnë nga aplikacioni, databaza i kontrollon
+    if coalesce(cardinality(p_member_ids), 0) = 0
+       or p_split_amounts is null
+       or cardinality(p_split_amounts) <> cardinality(p_member_ids) then
+      raise exception 'Shumat e ndarjes nuk përputhen me anëtarët e zgjedhur.';
+    end if;
+    if (select count(distinct m) from unnest(p_member_ids) m) <> cardinality(p_member_ids) then
+      raise exception 'Një anëtar është zgjedhur dy herë në ndarje.';
+    end if;
+    if exists (
+      select 1 from unnest(p_member_ids) m
+      where not exists (select 1 from public.profiles p where p.id = m and p.household_id = hh)
+    ) then
+      raise exception 'Ndarja përfshin dikë që nuk është anëtar i banesës.';
+    end if;
+    if exists (select 1 from unnest(p_split_amounts) a where a is null or a < 0 or a <> round(a, 2)) then
+      raise exception 'Pjesët e ndarjes duhet të jenë shuma pozitive me deri në 2 decimale.';
+    end if;
+    if (select sum(a) from unnest(p_split_amounts) a) <> saved.total_amount then
+      raise exception 'Pjesët e ndarjes (% €) nuk janë të barabarta me totalin (% €).',
+        (select sum(a) from unnest(p_split_amounts) a), saved.total_amount;
+    end if;
+
+    insert into public.expense_splits (expense_id, user_id, amount_owed)
+    select saved.id, m.id, m.amount
+    from unnest(p_member_ids, p_split_amounts) as m (id, amount)
+    where m.amount > 0;
+
+  elsif not saved.is_personal then
     -- Lejohen vetëm anëtarët e së njëjtës banesë; nëse nuk zgjidhet askush, ndahet me të gjithë
     select array_agg(id order by created_at, id) into members
     from public.profiles
@@ -446,14 +491,14 @@ create policy "settlements_delete_creator" on public.settlements
 revoke execute on function public.create_household(text) from public, anon;
 revoke execute on function public.join_household(text) from public, anon;
 revoke execute on function public.leave_household() from public, anon;
-revoke execute on function public.save_expense(bigint, text, numeric, text, boolean, uuid[], uuid, date) from public, anon;
+revoke execute on function public.save_expense(bigint, text, numeric, text, boolean, uuid[], uuid, date, text, numeric[]) from public, anon;
 revoke execute on function public.my_balances() from public, anon;
 revoke execute on function public.generate_household_code() from public, anon, authenticated;
 
 grant execute on function public.create_household(text) to authenticated;
 grant execute on function public.join_household(text) to authenticated;
 grant execute on function public.leave_household() to authenticated;
-grant execute on function public.save_expense(bigint, text, numeric, text, boolean, uuid[], uuid, date) to authenticated;
+grant execute on function public.save_expense(bigint, text, numeric, text, boolean, uuid[], uuid, date, text, numeric[]) to authenticated;
 grant execute on function public.my_balances() to authenticated;
 
 -- ------------------------------------------------------------------------------
