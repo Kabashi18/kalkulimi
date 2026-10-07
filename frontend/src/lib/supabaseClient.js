@@ -4,8 +4,14 @@ import { createClient } from '@supabase/supabase-js';
 // Ky modul nuk duhet të hedhë kurrë gabim gjatë ngarkimit, sepse kjo do ta linte faqen të bardhë.
 // Në vend të kësaj, problemi ruhet te `supabaseConfigError` dhe App shfaq një ekran ndihmës.
 
-// Heq hapësirat dhe thonjëzat që shpesh ngjiten gabimisht në Vercel ("https://..." ose 'eyJ...')
-const clean = (value) => (value ?? '').toString().trim().replace(/^['"]+|['"]+$/g, '').trim();
+// Heq hapësirat, thonjëzat, kllapat dhe formatimet markdown që mund të ngjiten gabimisht në Vercel
+const clean = (value) => {
+  let val = (value ?? '').toString().trim();
+  // Nëse është ngjitur si markdown link [url](url) ose (url)
+  const mdMatch = val.match(/\((https?:\/\/[^\s)]+)\)/);
+  if (mdMatch) val = mdMatch[1];
+  return val.replace(/^['"`\[\]<>\(\)]+|['"`\[\]<>\(\)]+$/g, '').trim();
+};
 
 const normalizeUrl = (value) => {
   let url = clean(value);
@@ -79,6 +85,5 @@ export const toAppError = (error, fallback = 'Ndodhi një gabim. Provoni sërish
   if (/relation .* does not exist|Could not find the (table|function)/i.test(msg)) {
     return new Error('Databaza nuk është konfiguruar. Ekzekutoni supabase/schema.sql te Supabase SQL Editor.');
   }
-  // Mesazhet nga funksionet tona SQL (raise exception) janë tashmë në shqip
   return new Error(msg || fallback);
 };
