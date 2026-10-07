@@ -11,7 +11,8 @@ import {
   computeBalancesForUser,
   computeGroupReport,
   computeMonthlyOutOfPocket,
-  computeCategoryBreakdown
+  computeCategoryBreakdown,
+  monthLabel
 } from '../utils/balances';
 
 export { isPersonalExpense };
@@ -176,7 +177,7 @@ export const expenseApi = {
       group: { id: household.id, name: household.name, code: household.code },
       report: {
         ...report,
-        month: new Date().toLocaleDateString('sq-AL', { month: 'long', year: 'numeric' }),
+        month: monthLabel(new Date()),
         expenses: report.expenses.map((e) => ({ ...e, paid_by_name: nameOf(e.paid_by) }))
       }
     };

@@ -6,7 +6,10 @@
   "scripts": {
     "dev": "npm --prefix frontend run dev",
     "build": "cd frontend && npm install && npm run build",
-    "vercel-build": "cd frontend && npm install && npm run build"
+    "vercel-build": "cd frontend && npm install && npm run build",
+    "test": "npm --prefix frontend test",
+    "test:e2e": "npm --prefix frontend run test:e2e",
+    "check:copies": "node scripts/check-shared-copies.mjs"
   },
   "license": "ISC"
 }

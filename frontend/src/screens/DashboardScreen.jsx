@@ -1,20 +1,39 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Plus, RotateCw, AlertTriangle, Receipt, CheckCircle, LogOut, Copy, Check, Users, Share2, DoorOpen, UserPlus } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { Plus, RotateCw, AlertTriangle, Receipt, CheckCircle, LogOut, Copy, Check, Users, Share2, DoorOpen, UserPlus, ChevronLeft, ChevronRight } from 'lucide-react';
 import SummaryCard from '../components/SummaryCard';
 import BalanceSettlement from '../components/BalanceSettlement';
 import ExpenseItem from '../components/ExpenseItem';
 import CategoryChart from '../components/CategoryChart';
 import DeleteConfirmModal from '../components/DeleteConfirmModal';
 import ReportModal from '../components/ReportModal';
+import ConfirmDialog from '../components/ConfirmDialog';
 import { expenseApi } from '../api/expenseApi';
 import { householdApi } from '../api/householdApi';
+import {
+  isPersonalExpense,
+  isInMonth,
+  monthLabel,
+  startOfMonth,
+  addMonths,
+  computeMonthlyOutOfPocket,
+  computeCategoryBreakdown
+} from '../utils/balances';
+
+const LIST_FILTERS = [
+  { id: 'all', label: 'Të gjitha' },
+  { id: 'shared', label: 'Të përbashkëta' },
+  { id: 'personal', label: 'Personale' }
+];
 
 export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, user, household, onLogout, onLeftHousehold }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
-  const [successToast, setSuccessToast] = useState(null);
+  const [toast, setToast] = useState(null); // { message, type: 'success' | 'error' }
+  // Modali i largimit: null | 'blocked' (ka borxhe) | 'confirm'
+  const [leaveDialog, setLeaveDialog] = useState(null);
+  const [leaving, setLeaving] = useState(false);
   const [showInvite, setShowInvite] = useState(false);
   const [copied, setCopied] = useState(false);
   const toastTimer = useRef(null);
@@ -30,12 +49,28 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
   const currentUserId = user?.id;
   const activeUserName = user?.name || 'Përdorues';
   const members = data?.members || [];
-  const expenses = data?.expenses || [];
+  const expenses = useMemo(() => data?.expenses || [], [data]);
 
-  const showToast = (message) => {
-    setSuccessToast(message);
+  // Muaji i zgjedhur: totali, grafiku dhe lista i referohen këtij muaji (borxhet janë gjithmonë totale)
+  const [month, setMonth] = useState(() => startOfMonth());
+  const [listFilter, setListFilter] = useState('all');
+  const isCurrentMonth = month.getTime() === startOfMonth().getTime();
+  const monthExpenses = useMemo(() => expenses.filter((e) => isInMonth(e, month)), [expenses, month]);
+  const monthlyTotal = useMemo(() => computeMonthlyOutOfPocket(currentUserId, expenses, month), [currentUserId, expenses, month]);
+  const categoryData = useMemo(() => computeCategoryBreakdown(monthExpenses), [monthExpenses]);
+  const filterCounts = {
+    all: monthExpenses.length,
+    shared: monthExpenses.filter((e) => !isPersonalExpense(e)).length,
+    personal: monthExpenses.filter((e) => isPersonalExpense(e)).length
+  };
+  const listedExpenses = monthExpenses.filter((e) =>
+    listFilter === 'all' ? true : listFilter === 'personal' ? isPersonalExpense(e) : !isPersonalExpense(e)
+  );
+
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
     clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => setSuccessToast(null), 3000);
+    toastTimer.current = setTimeout(() => setToast(null), type === 'error' ? 5000 : 3000);
   };
 
   const loadData = useCallback(async () => {
@@ -95,22 +130,21 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
     }
   };
 
-  const handleLeave = async () => {
-    // Kontroll i shpejtë në UI; databaza e zbaton rregullin gjithsesi (leave_household)
-    const openDebts = data?.summary?.settlementBalance?.breakdown || [];
-    if (openDebts.length > 0) {
-      const list = openDebts
-        .map((d) => (d.type === 'user_owes' ? `• Ti i ke borxh ${d.name}: ${d.amount.toFixed(2)} €` : `• ${d.name} të ka borxh: ${d.amount.toFixed(2)} €`))
-        .join('\n');
-      alert(`Nuk mund të largohesh pa i larë më parë borxhet:\n\n${list}\n\nPërdor "Laje Borxhin" / "Shëno të marrë" te kartela e borxheve.`);
-      return;
-    }
-    if (!window.confirm(`Je i sigurt që do të largohesh nga "${household.name}"? Shpenzimet mbeten te banesa.`)) return;
+  // Kontroll i shpejtë në UI; databaza e zbaton rregullin gjithsesi (leave_household)
+  const openDebts = data?.summary?.settlementBalance?.breakdown || [];
+  const handleLeave = () => setLeaveDialog(openDebts.length > 0 ? 'blocked' : 'confirm');
+
+  const confirmLeave = async () => {
     try {
+      setLeaving(true);
       await householdApi.leaveHousehold();
+      setLeaveDialog(null);
       onLeftHousehold?.();
     } catch (err) {
-      alert(err.message);
+      setLeaveDialog(null);
+      showToast(err.message, 'error');
+    } finally {
+      setLeaving(false);
     }
   };
 
@@ -129,7 +163,8 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
       showToast('Shpenzimi u fshi me sukses!');
       loadData();
     } catch (err) {
-      alert(err?.message || 'Dështoi fshirja e shpenzimit.');
+      setIsDeleteModalOpen(false);
+      showToast(err?.message || 'Dështoi fshirja e shpenzimit.', 'error');
     } finally {
       setDeleteLoading(false);
     }
@@ -138,10 +173,19 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
   return (
     <div className="flex flex-col h-full bg-slate-50 relative">
       {/* Toast Notification */}
-      {successToast && (
-        <div className="absolute top-16 left-4 right-4 z-30 bg-emerald-600 text-white text-xs font-bold py-2.5 px-4 rounded-2xl shadow-lg flex items-center space-x-2 animate-in fade-in slide-in-from-top-2 duration-200">
-          <CheckCircle className="w-4 h-4 text-emerald-200 shrink-0" />
-          <span>{successToast}</span>
+      {toast && (
+        <div
+          role="status"
+          className={`absolute top-16 left-4 right-4 z-30 text-white text-xs font-bold py-2.5 px-4 rounded-2xl shadow-lg flex items-center space-x-2 animate-in fade-in slide-in-from-top-2 duration-200 ${
+            toast.type === 'error' ? 'bg-rose-600' : 'bg-emerald-600'
+          }`}
+        >
+          {toast.type === 'error' ? (
+            <AlertTriangle className="w-4 h-4 text-rose-200 shrink-0" />
+          ) : (
+            <CheckCircle className="w-4 h-4 text-emerald-200 shrink-0" />
+          )}
+          <span>{toast.message}</span>
         </div>
       )}
 
@@ -289,8 +333,36 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
           </div>
         )}
 
-        {/* 1. Totali mujor nga xhepi */}
-        <SummaryCard monthlyTotal={data?.summary?.currentMonth?.totalPaidOutOfPocket || 0} />
+        {/* 1. Zgjedhësi i muajit + totali i atij muaji */}
+        <div className="flex items-center justify-between mb-2">
+          <button
+            onClick={() => setMonth((m) => addMonths(m, -1))}
+            className="w-8 h-8 rounded-full bg-white border border-slate-200 hover:bg-slate-100 flex items-center justify-center text-slate-600 cursor-pointer"
+            title="Muaji i kaluar"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          <div className="text-center">
+            <span className="text-sm font-black text-slate-800">{monthLabel(month)}</span>
+            {!isCurrentMonth && (
+              <button
+                onClick={() => setMonth(startOfMonth())}
+                className="block mx-auto text-[10px] font-bold text-indigo-600 hover:underline cursor-pointer"
+              >
+                Kthehu te muaji aktual
+              </button>
+            )}
+          </div>
+          <button
+            onClick={() => setMonth((m) => addMonths(m, 1))}
+            disabled={isCurrentMonth}
+            className="w-8 h-8 rounded-full bg-white border border-slate-200 hover:bg-slate-100 flex items-center justify-center text-slate-600 disabled:opacity-30 disabled:cursor-default cursor-pointer"
+            title="Muaji tjetër"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+        <SummaryCard monthlyTotal={monthlyTotal} monthName={monthLabel(month)} isCurrentMonth={isCurrentMonth} />
 
         {/* 2. Kush i ka borxh kujt + "Laje Borxhin" */}
         {!loading && (
@@ -304,18 +376,32 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
               loadData();
             }}
             onDownloadReport={() => setIsReportModalOpen(true)}
+            onError={(msg) => showToast(msg, 'error')}
           />
         )}
 
-        {/* 3. Grafiku i Kategorive */}
-        {data?.summary?.categoryBreakdown?.length > 0 && (
-          <CategoryChart categoryData={data.summary.categoryBreakdown} />
-        )}
+        {/* 3. Grafiku i Kategorive (muaji i zgjedhur) */}
+        {categoryData.length > 0 && <CategoryChart categoryData={categoryData} />}
 
-        {/* 4. Lista e Shpenzimeve */}
-        <div className="flex justify-between items-center mb-3 mt-4">
-          <h3 className="text-sm font-bold text-slate-800">Shpenzimet e Fundit</h3>
-          <span className="text-xs font-medium text-slate-400">{expenses.length} regjistrime</span>
+        {/* 4. Lista e Shpenzimeve të muajit + filtri */}
+        <div className="flex justify-between items-center mb-2 mt-4">
+          <h3 className="text-sm font-bold text-slate-800">Shpenzimet: {monthLabel(month)}</h3>
+          <span className="text-xs font-medium text-slate-400">{listedExpenses.length} regjistrime</span>
+        </div>
+        <div className="flex space-x-1.5 mb-3 overflow-x-auto">
+          {LIST_FILTERS.map((f) => (
+            <button
+              key={f.id}
+              onClick={() => setListFilter(f.id)}
+              className={`px-3 py-1.5 rounded-full text-[11px] font-bold border whitespace-nowrap transition-all cursor-pointer ${
+                listFilter === f.id
+                  ? 'bg-slate-800 text-white border-slate-800'
+                  : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
+              }`}
+            >
+              {f.label} <span className="opacity-60">{filterCounts[f.id]}</span>
+            </button>
+          ))}
         </div>
 
         {loading ? (
@@ -323,19 +409,23 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
             <div className="inline-block w-7 h-7 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
             <p className="text-xs text-slate-400 mt-2 font-medium">Duke ngarkuar të dhënat...</p>
           </div>
-        ) : expenses.length === 0 ? (
+        ) : listedExpenses.length === 0 ? (
           <div className="py-12 text-center bg-white rounded-2xl border border-slate-100 p-6">
             <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-2 text-slate-400">
               <Receipt className="w-6 h-6" />
             </div>
-            <p className="text-sm font-semibold text-slate-700">Nuk ka shpenzime të regjistruara</p>
+            <p className="text-sm font-semibold text-slate-700">
+              {expenses.length === 0 ? 'Nuk ka shpenzime të regjistruara' : `Asnjë shpenzim në ${monthLabel(month)}`}
+            </p>
             <p className="text-xs text-slate-400 mt-1">
-              Klikoni butonin "+ Shto" lart për të regjistruar shpenzimin e parë të banesës.
+              {expenses.length === 0
+                ? 'Klikoni butonin "+ Shto" lart për të regjistruar shpenzimin e parë të banesës.'
+                : 'Ndërroni muajin me shigjetat ose ndryshoni filtrin.'}
             </p>
           </div>
         ) : (
           <div className="space-y-1">
-            {expenses.map((expense) => (
+            {listedExpenses.map((expense) => (
               <ExpenseItem
                 key={expense.id}
                 expense={expense}
@@ -356,6 +446,36 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
         expense={expenseToDelete}
         loading={deleteLoading}
       />
+
+      {/* Modalet e largimit nga banesa */}
+      <ConfirmDialog
+        isOpen={leaveDialog === 'blocked'}
+        tone="warning"
+        title="Ka borxhe të pashlyera"
+        onClose={() => setLeaveDialog(null)}
+      >
+        <p className="mb-2">Nuk mund të largohesh nga banesa pa i larë më parë këto borxhe:</p>
+        <ul className="text-left inline-block space-y-0.5 mb-2">
+          {openDebts.map((d) => (
+            <li key={d.userId} className={d.type === 'user_owes' ? 'text-rose-600 font-semibold' : 'text-emerald-600 font-semibold'}>
+              {d.type === 'user_owes' ? `Ti i ke borxh ${d.name}: ${d.amount.toFixed(2)} €` : `${d.name} të ka borxh: ${d.amount.toFixed(2)} €`}
+            </li>
+          ))}
+        </ul>
+        <p>Përdor "Laje Borxhin" / "Shëno të marrë" te kartela e borxheve.</p>
+      </ConfirmDialog>
+      <ConfirmDialog
+        isOpen={leaveDialog === 'confirm'}
+        tone="leave"
+        title="Largohu nga banesa?"
+        confirmLabel="Largohu"
+        loading={leaving}
+        onConfirm={confirmLeave}
+        onClose={() => setLeaveDialog(null)}
+      >
+        Do të largohesh nga <strong className="text-slate-800">"{household.name}"</strong>. Shpenzimet mbeten te banesa dhe mund
+        të rikthehesh me kodin <strong className="text-slate-800">{household.code}</strong>.
+      </ConfirmDialog>
 
       {/* Modali i Gjenerimit të Raportit në PDF */}
       <ReportModal

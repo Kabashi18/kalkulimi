@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Scale, ArrowUpCircle, ArrowDownCircle, CheckCircle2, HandCoins, Download, X, Undo2, ArrowRight } from 'lucide-react';
 import { expenseApi } from '../api/expenseApi';
+import { formatDateSq } from '../utils/balances';
 
 const initials = (name = '') =>
   name
@@ -10,8 +11,7 @@ const initials = (name = '') =>
     .map((p) => p[0]?.toUpperCase())
     .join('') || '?';
 
-const formatDate = (iso) =>
-  new Date(iso).toLocaleDateString('sq-AL', { day: '2-digit', month: 'short' });
+const formatDate = (iso) => formatDateSq(new Date(iso), { year: false });
 
 // Modali i konfirmimit të pagesës ("Laje Borxhin")
 function SettleModal({ row, onClose, onConfirm, loading, error }) {
@@ -98,7 +98,8 @@ export default function BalanceSettlement({
   currentUserId,
   householdId,
   onChanged,
-  onDownloadReport
+  onDownloadReport,
+  onError
 }) {
   const [activeRow, setActiveRow] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -135,7 +136,7 @@ export default function BalanceSettlement({
       await expenseApi.deleteSettlement(id);
       onChanged?.('Pagesa u anulua.');
     } catch (err) {
-      alert(err.message);
+      onError?.(err.message);
     } finally {
       setUndoingId(null);
     }

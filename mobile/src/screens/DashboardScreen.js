@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, FlatList, RefreshControl, TouchableOpacity, ActivityIndicator, SafeAreaView, Alert, Share, AppState } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import SummaryCard from '../components/SummaryCard';
@@ -6,6 +6,20 @@ import BalanceCard from '../components/BalanceCard';
 import ExpenseItem from '../components/ExpenseItem';
 import { expenseApi } from '../api/expenseApi';
 import { householdApi } from '../api/householdApi';
+import {
+  isPersonalExpense,
+  isInMonth,
+  monthLabel,
+  startOfMonth,
+  addMonths,
+  computeMonthlyOutOfPocket
+} from '../utils/balances';
+
+const LIST_FILTERS = [
+  { id: 'all', label: 'Të gjitha' },
+  { id: 'shared', label: 'Të përbashkëta' },
+  { id: 'personal', label: 'Personale' }
+];
 
 export default function DashboardScreen({ user, household, onNavigateToAdd, onNavigateToEdit, onLogout, onLeftHousehold }) {
   const [loading, setLoading] = useState(true);
@@ -15,7 +29,17 @@ export default function DashboardScreen({ user, household, onNavigateToAdd, onNa
   const [showInvite, setShowInvite] = useState(false);
 
   const members = data?.members || [];
-  const expenses = data?.expenses || [];
+  const expenses = useMemo(() => data?.expenses || [], [data]);
+
+  // Muaji i zgjedhur: totali dhe lista i referohen këtij muaji (borxhet janë gjithmonë totale)
+  const [month, setMonth] = useState(() => startOfMonth());
+  const [listFilter, setListFilter] = useState('all');
+  const isCurrentMonth = month.getTime() === startOfMonth().getTime();
+  const monthExpenses = useMemo(() => expenses.filter((e) => isInMonth(e, month)), [expenses, month]);
+  const monthlyTotal = useMemo(() => computeMonthlyOutOfPocket(user?.id, expenses, month), [user?.id, expenses, month]);
+  const listedExpenses = monthExpenses.filter((e) =>
+    listFilter === 'all' ? true : listFilter === 'personal' ? isPersonalExpense(e) : !isPersonalExpense(e)
+  );
 
   const loadData = useCallback(async () => {
     try {
@@ -158,7 +182,7 @@ export default function DashboardScreen({ user, household, onNavigateToAdd, onNa
         </View>
       ) : (
         <FlatList
-          data={expenses}
+          data={listedExpenses}
           keyExtractor={(item) => String(item.id)}
           renderItem={({ item }) => <ExpenseItem expense={item} onOptions={handleExpenseOptions} />}
           contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 80 }}
@@ -200,7 +224,24 @@ export default function DashboardScreen({ user, household, onNavigateToAdd, onNa
                   </View>
                 </View>
               )}
-              <SummaryCard monthlyTotal={data?.summary?.currentMonth?.totalPaidOutOfPocket || 0} />
+              {/* Zgjedhësi i muajit */}
+              <View className="flex-row items-center justify-between mb-2">
+                <TouchableOpacity onPress={() => setMonth((m) => addMonths(m, -1))} className="w-8 h-8 rounded-full bg-white border border-slate-200 items-center justify-center">
+                  <Ionicons name="chevron-back" size={16} color="#475569" />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setMonth(startOfMonth())} disabled={isCurrentMonth} className="items-center">
+                  <Text className="text-sm font-black text-slate-800">{monthLabel(month)}</Text>
+                  {!isCurrentMonth && <Text className="text-[10px] font-bold text-indigo-600">Kthehu te muaji aktual</Text>}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => setMonth((m) => addMonths(m, 1))}
+                  disabled={isCurrentMonth}
+                  className={`w-8 h-8 rounded-full bg-white border border-slate-200 items-center justify-center ${isCurrentMonth ? 'opacity-30' : ''}`}
+                >
+                  <Ionicons name="chevron-forward" size={16} color="#475569" />
+                </TouchableOpacity>
+              </View>
+              <SummaryCard monthlyTotal={monthlyTotal} monthName={monthLabel(month)} isCurrentMonth={isCurrentMonth} />
               <BalanceCard
                 balance={data?.summary?.settlementBalance}
                 settlements={data?.settlements || []}
@@ -208,17 +249,32 @@ export default function DashboardScreen({ user, household, onNavigateToAdd, onNa
                 householdId={household.id}
                 onChanged={loadData}
               />
-              <View className="flex-row justify-between items-center mb-3">
-                <Text className="text-sm font-bold text-slate-800">Shpenzimet e Fundit</Text>
-                <Text className="text-xs font-medium text-slate-400">{expenses.length} regjistrime</Text>
+              <View className="flex-row justify-between items-center mb-2">
+                <Text className="text-sm font-bold text-slate-800">Shpenzimet: {monthLabel(month)}</Text>
+                <Text className="text-xs font-medium text-slate-400">{listedExpenses.length} regjistrime</Text>
+              </View>
+              <View className="flex-row mb-3">
+                {LIST_FILTERS.map((f) => (
+                  <TouchableOpacity
+                    key={f.id}
+                    onPress={() => setListFilter(f.id)}
+                    className={`px-3 py-1.5 rounded-full border mr-1.5 ${listFilter === f.id ? 'bg-slate-800 border-slate-800' : 'bg-white border-slate-200'}`}
+                  >
+                    <Text className={`text-[11px] font-bold ${listFilter === f.id ? 'text-white' : 'text-slate-600'}`}>{f.label}</Text>
+                  </TouchableOpacity>
+                ))}
               </View>
             </View>
           }
           ListEmptyComponent={
             <View className="items-center py-10 bg-white rounded-2xl border border-slate-100">
               <Ionicons name="receipt-outline" size={32} color="#94a3b8" />
-              <Text className="text-slate-700 font-semibold text-sm mt-2">Nuk ka shpenzime ende</Text>
-              <Text className="text-slate-400 text-xs mt-1">Shtypni "+ Shto" për shpenzimin e parë.</Text>
+              <Text className="text-slate-700 font-semibold text-sm mt-2">
+                {expenses.length === 0 ? 'Nuk ka shpenzime ende' : `Asnjë shpenzim në ${monthLabel(month)}`}
+              </Text>
+              <Text className="text-slate-400 text-xs mt-1">
+                {expenses.length === 0 ? 'Shtypni "+ Shto" për shpenzimin e parë.' : 'Ndërroni muajin ose filtrin.'}
+              </Text>
             </View>
           }
         />

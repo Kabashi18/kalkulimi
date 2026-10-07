@@ -248,3 +248,31 @@ export const computeSplitAmounts = (total, memberIds = [], mode = 'equal', value
   const cents = memberIds.map((_, i) => (i === n - 1 ? totalCents - base * (n - 1) : base));
   return result(cents);
 };
+
+// ------------------------------------------------------------------------------
+// DATAT NË SHQIP (pa Intl: Hermes në Android shpesh nuk e ka gjuhën 'sq')
+// ------------------------------------------------------------------------------
+export const MONTHS_SQ = ['Janar', 'Shkurt', 'Mars', 'Prill', 'Maj', 'Qershor', 'Korrik', 'Gusht', 'Shtator', 'Tetor', 'Nëntor', 'Dhjetor'];
+const MONTHS_SQ_SHORT = ['Jan', 'Shk', 'Mar', 'Pri', 'Maj', 'Qer', 'Kor', 'Gus', 'Sht', 'Tet', 'Nën', 'Dhj'];
+const WEEKDAYS_SQ = ['E diel', 'E hënë', 'E martë', 'E mërkurë', 'E enjte', 'E premte', 'E shtunë'];
+
+/** "Tetor 2026" */
+export const monthLabel = (date) => `${MONTHS_SQ[date.getMonth()]} ${date.getFullYear()}`;
+
+/** "07 Tet 2026" (ose "07 Tet" pa vit; me ditën e javës: "E mërkurë, 07 Tetor 2026") */
+export const formatDateSq = (date, { year = true, weekday = false } = {}) => {
+  if (!date) return '';
+  const dd = String(date.getDate()).padStart(2, '0');
+  if (weekday) return `${WEEKDAYS_SQ[date.getDay()]}, ${dd} ${MONTHS_SQ[date.getMonth()]} ${date.getFullYear()}`;
+  return `${dd} ${MONTHS_SQ_SHORT[date.getMonth()]}${year ? ` ${date.getFullYear()}` : ''}`;
+};
+
+/** Dita e parë e muajit (për zgjedhësin e muajit) */
+export const startOfMonth = (date = new Date()) => new Date(date.getFullYear(), date.getMonth(), 1);
+export const addMonths = (date, n) => new Date(date.getFullYear(), date.getMonth() + n, 1);
+
+/** A bie shpenzimi në muajin e dhënë (sipas datës së shpenzimit)? */
+export const isInMonth = (expense, monthDate) => {
+  const d = expenseDateOf(expense);
+  return !!d && d.getFullYear() === monthDate.getFullYear() && d.getMonth() === monthDate.getMonth();
+};

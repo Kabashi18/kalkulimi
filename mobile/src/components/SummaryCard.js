@@ -3,13 +3,13 @@ import { View, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 // Totali i shpenzuar nga xhepi këtë muaj (personale + të përbashkëta). Borxhet shfaqen te BalanceCard.
-export default function SummaryCard({ monthlyTotal = 0 }) {
+export default function SummaryCard({ monthlyTotal = 0, monthName = '', isCurrentMonth = true }) {
   return (
     <View className="bg-indigo-600 rounded-3xl p-5 mb-4">
       <View className="flex-row justify-between items-start">
         <View>
           <Text className="text-indigo-200 text-xs font-semibold uppercase tracking-wider mb-1">
-            Totali i Shpenzuar këtë Muaj
+            {isCurrentMonth ? 'Totali i Shpenzuar këtë Muaj' : `Shpenzuar në ${monthName}`}
           </Text>
           <Text className="text-white text-3xl font-extrabold tracking-tight">{Number(monthlyTotal).toFixed(2)} €</Text>
         </View>

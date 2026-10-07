@@ -38,6 +38,17 @@ kalkulimi/
    ```
 3. Mobil: shikoni [mobile/README.md](mobile/README.md).
 
+## Testet
+
+```bash
+npm test               # Vitest: logjika e borxheve, ndarjeve, përqindjeve dhe datave (frontend/src/utils)
+npm run check:copies   # kopjet në mobile/src janë identike me frontend/src
+npm run test:e2e       # test end-to-end kundrejt Supabase-it real (krijon 2 llogari testuese)
+```
+
+GitHub Actions (`.github/workflows/ci.yml`) ekzekuton `check:copies`, testet dhe build-in në çdo push.
+Testi E2E nuk ekzekutohet në CI, sepse krijon llogari në projektin real.
+
 ## Deploy (Vercel)
 
 Vendosni `VITE_SUPABASE_URL` dhe `VITE_SUPABASE_ANON_KEY` te **Settings → Environment Variables**, pastaj bëni **Redeploy**.

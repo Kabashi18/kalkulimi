@@ -3,7 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator,
 import { Ionicons } from '@expo/vector-icons';
 import { expenseApi } from '../api/expenseApi';
 import { householdApi } from '../api/householdApi';
-import { isPersonalExpense, expenseDateOf, todayISO, computeSplitAmounts } from '../utils/balances';
+import { isPersonalExpense, expenseDateOf, todayISO, computeSplitAmounts, formatDateSq } from '../utils/balances';
 
 const CATEGORIES = [
   { id: 'Rrymë', name: 'Rrymë', icon: 'flash', color: '#d97706' },
@@ -21,8 +21,7 @@ const shiftDays = (iso, days) => {
   d.setDate(d.getDate() + days);
   return todayISO(d);
 };
-const formatDay = (iso) =>
-  expenseDateOf({ expense_date: iso }).toLocaleDateString('sq-AL', { weekday: 'short', day: '2-digit', month: 'long', year: 'numeric' });
+const formatDay = (iso) => formatDateSq(expenseDateOf({ expense_date: iso }), { weekday: true });
 
 const Label = ({ children }) => (
   <Text className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">{children}</Text>
