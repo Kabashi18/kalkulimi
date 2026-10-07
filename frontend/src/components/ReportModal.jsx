@@ -3,7 +3,7 @@ import { X, Download, Printer, FileText, CheckCircle2, ArrowRight, Users, Euro }
 import { expenseApi } from '../api/expenseApi';
 import { generatePdfReport } from '../utils/generatePdfReport';
 
-export default function ReportModal({ isOpen, onClose, groupId = 1 }) {
+export default function ReportModal({ isOpen, onClose, household }) {
   const [loading, setLoading] = useState(true);
   const [report, setReport] = useState(null);
   const [group, setGroup] = useState(null);
@@ -13,13 +13,13 @@ export default function ReportModal({ isOpen, onClose, groupId = 1 }) {
     if (isOpen) {
       loadReport();
     }
-  }, [isOpen, groupId]);
+  }, [isOpen, household?.id]);
 
   const loadReport = async () => {
     try {
       setLoading(true);
       setError(null);
-      const res = await expenseApi.getGroupReport(groupId);
+      const res = await expenseApi.getGroupReport(household);
       setReport(res.report);
       setGroup(res.group);
     } catch (err) {

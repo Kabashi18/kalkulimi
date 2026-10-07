@@ -1,19 +1,23 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, RotateCw, AlertTriangle, Receipt, CheckCircle, LogOut } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Plus, RotateCw, AlertTriangle, Receipt, CheckCircle, LogOut, Copy, Check, Users, Share2, DoorOpen } from 'lucide-react';
 import SummaryCard from '../components/SummaryCard';
+import BalanceSettlement from '../components/BalanceSettlement';
 import ExpenseItem from '../components/ExpenseItem';
 import CategoryChart from '../components/CategoryChart';
 import DeleteConfirmModal from '../components/DeleteConfirmModal';
 import ReportModal from '../components/ReportModal';
 import { expenseApi } from '../api/expenseApi';
+import { householdApi } from '../api/householdApi';
 
-export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, user, onLogout }) {
+export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, user, household, onLogout, onLeftHousehold }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [summaryData, setSummaryData] = useState(null);
-  const [expenses, setExpenses] = useState([]);
+  const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [successToast, setSuccessToast] = useState(null);
+  const [showInvite, setShowInvite] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const toastTimer = useRef(null);
 
   // Gjendja për modalin e fshirjes
   const [expenseToDelete, setExpenseToDelete] = useState(null);
@@ -23,53 +27,82 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
   // Gjendja për modalin e raportit të barazimit (PDF)
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
 
-  // Përcaktimi i sigurt i përdoruesit aktiv dhe ID-së
-  const storedUser = (() => {
-    try {
-      const saved = localStorage.getItem('user');
-      return saved ? JSON.parse(saved) : null;
-    } catch {
-      return null;
-    }
-  })();
+  const currentUserId = user?.id;
+  const activeUserName = user?.name || 'Përdorues';
+  const members = data?.members || [];
+  const expenses = data?.expenses || [];
 
-  const currentUserId =
-    user?.id ||
-    storedUser?.id ||
-    (localStorage.getItem('userId') ? Number(localStorage.getItem('userId')) : 1);
-
-  const currentGroupId =
-    user?.group_id ||
-    storedUser?.group_id ||
-    1;
-
-  const activeUserName =
-    user?.name ||
-    storedUser?.name ||
-    summaryData?.user?.name ||
-    'Përdorues';
+  const showToast = (message) => {
+    setSuccessToast(message);
+    clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setSuccessToast(null), 3000);
+  };
 
   const loadData = useCallback(async () => {
     try {
       setError(null);
-      const res = await expenseApi.getSummary('me');
-      setSummaryData(res?.summary || null);
-      setExpenses(res?.expenses || []);
+      setData(await expenseApi.getSummary(household.id));
     } catch (err) {
-      setError('Nuk mund të lidhet me serverin MySQL/Node. Sigurohuni që backend-i po punon.');
+      setError(err?.message || 'Nuk mund të lidhet me serverin. Kontrolloni internetin.');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [household.id]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
+  // Sinkronizimi në kohë reale: kur një shok shton shpenzim ose lan borxh, Dashboard-i rifreskohet vetë
+  useEffect(() => {
+    const unsubscribe = expenseApi.subscribeToHousehold(household.id, loadData);
+    // Rezervë: rifresko kur përdoruesi kthehet te skeda (p.sh. telefoni ishte në gjumë)
+    const onVisible = () => document.visibilityState === 'visible' && loadData();
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      unsubscribe();
+      document.removeEventListener('visibilitychange', onVisible);
+      clearTimeout(toastTimer.current);
+    };
+  }, [household.id, loadData]);
+
   const handleRefresh = () => {
     setRefreshing(true);
     loadData();
+  };
+
+  const handleCopyCode = async () => {
+    try {
+      await navigator.clipboard.writeText(household.code);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      showToast(`Kodi: ${household.code}`);
+    }
+  };
+
+  const handleShareCode = async () => {
+    const text = `Bashkohu me banesën "${household.name}" te Kalkulimi me kodin: ${household.code}\n${window.location.origin}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: 'Ftesë për banesën', text });
+      } catch {
+        /* përdoruesi e anuloi ndarjen */
+      }
+    } else {
+      handleCopyCode();
+    }
+  };
+
+  const handleLeave = async () => {
+    if (!window.confirm(`Je i sigurt që do të largohesh nga "${household.name}"? Shpenzimet dhe borxhet mbeten te banesa.`)) return;
+    try {
+      await householdApi.leaveHousehold();
+      onLeftHousehold?.();
+    } catch (err) {
+      alert(err.message);
+    }
   };
 
   // Trajtimi i fshirjes
@@ -84,12 +117,7 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
       await expenseApi.deleteExpense(id);
       setIsDeleteModalOpen(false);
       setExpenseToDelete(null);
-
-      // Shfaq njoftim suksesi të shpejtë
-      setSuccessToast('Shpenzimi u fshi me sukses!');
-      setTimeout(() => setSuccessToast(null), 3000);
-
-      // Rifresko të dhënat
+      showToast('Shpenzimi u fshi me sukses!');
       loadData();
     } catch (err) {
       alert(err?.message || 'Dështoi fshirja e shpenzimit.');
@@ -108,43 +136,104 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
         </div>
       )}
 
-      {/* Top Mobile App Header */}
-      <header className="px-5 py-4 bg-white border-b border-slate-100 flex justify-between items-center sticky top-0 z-10">
-        <div>
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-            {user?.group_name || storedUser?.group_name || 'Banesa Jonë'}
-          </span>
-          <h1 className="text-lg font-bold text-slate-800">
-            Përshëndetje, {activeUserName?.split(' ')?.[0] || activeUserName}
-          </h1>
+      {/* Header */}
+      <header className="px-5 py-4 bg-white border-b border-slate-100 sticky top-0 z-10">
+        <div className="flex justify-between items-center">
+          <div className="min-w-0">
+            <button
+              onClick={() => setShowInvite(!showInvite)}
+              className="flex items-center space-x-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider hover:text-indigo-600 cursor-pointer"
+              title="Fto shokët e banesës"
+            >
+              <span className="truncate">{household.name}</span>
+              <span className="flex items-center space-x-0.5 bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-md normal-case">
+                <Users className="w-3 h-3" />
+                <span>{members.length || 1}</span>
+              </span>
+            </button>
+            <h1 className="text-lg font-bold text-slate-800 truncate">
+              Përshëndetje, {activeUserName.split(' ')[0]}
+            </h1>
+          </div>
+
+          <div className="flex items-center space-x-1.5 shrink-0">
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 transition-colors cursor-pointer"
+              title="Rifresko"
+            >
+              <RotateCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+            </button>
+
+            <button
+              onClick={onNavigateToAdd}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-full flex items-center space-x-1 shadow-sm shadow-indigo-500/20 text-xs font-semibold transition-all active:scale-95 cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Shto</span>
+            </button>
+
+            <button
+              onClick={onLogout}
+              className="w-8 h-8 rounded-full bg-rose-50 hover:bg-rose-100 flex items-center justify-center text-rose-600 transition-colors ml-1 cursor-pointer"
+              title="Dil nga llogaria"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
 
-        <div className="flex items-center space-x-1.5">
-          <button
-            onClick={handleRefresh}
-            disabled={refreshing}
-            className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 transition-colors"
-            title="Rifresko"
-          >
-            <RotateCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
-          </button>
+        {/* Paneli i ftesës: kodi i banesës + anëtarët */}
+        {showInvite && (
+          <div className="mt-3 p-3.5 bg-indigo-50/70 border border-indigo-200 rounded-2xl animate-in fade-in duration-150">
+            <p className="text-[11px] font-semibold text-indigo-900 mb-2">
+              Ftoji shokët: ata regjistrohen dhe shkruajnë këtë kod.
+            </p>
+            <div className="flex items-center space-x-2">
+              <div className="flex-1 bg-white border border-indigo-200 rounded-xl px-3 py-2 text-sm font-black tracking-widest text-indigo-700 text-center">
+                {household.code}
+              </div>
+              <button
+                onClick={handleCopyCode}
+                className="w-9 h-9 rounded-xl bg-white border border-indigo-200 flex items-center justify-center text-indigo-600 hover:bg-indigo-100 cursor-pointer"
+                title="Kopjo kodin"
+              >
+                {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+              </button>
+              <button
+                onClick={handleShareCode}
+                className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white hover:bg-indigo-700 cursor-pointer"
+                title="Dërgo ftesën"
+              >
+                <Share2 className="w-4 h-4" />
+              </button>
+            </div>
 
-          <button
-            onClick={onNavigateToAdd}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-full flex items-center space-x-1 shadow-sm shadow-indigo-500/20 text-xs font-semibold transition-all active:scale-95"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Shto</span>
-          </button>
+            <div className="flex flex-wrap gap-1.5 mt-3">
+              {members.map((m) => (
+                <span
+                  key={m.id}
+                  className={`text-[10px] font-bold px-2 py-1 rounded-full border ${
+                    m.id === currentUserId
+                      ? 'bg-indigo-600 text-white border-indigo-600'
+                      : 'bg-white text-slate-700 border-slate-200'
+                  }`}
+                >
+                  {m.id === currentUserId ? `${m.name} (ti)` : m.name}
+                </span>
+              ))}
+            </div>
 
-          <button
-            onClick={onLogout}
-            className="w-8 h-8 rounded-full bg-rose-50 hover:bg-rose-100 flex items-center justify-center text-rose-600 transition-colors ml-1"
-            title="Dil nga llogaria"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-          </button>
-        </div>
+            <button
+              onClick={handleLeave}
+              className="mt-3 text-[11px] font-semibold text-slate-500 hover:text-rose-600 inline-flex items-center space-x-1 cursor-pointer"
+            >
+              <DoorOpen className="w-3.5 h-3.5" />
+              <span>Largohu nga banesa</span>
+            </button>
+          </div>
+        )}
       </header>
 
       {/* Main Content Area */}
@@ -159,47 +248,55 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
           </div>
         )}
 
-        {/* 1. Kartelat Përmbledhëse & Butoni "Shkarko Barazimin" */}
-        <SummaryCard
-          monthlyTotal={summaryData?.currentMonth?.totalPaidOutOfPocket || 0}
-          settlement={summaryData?.settlementBalance || {}}
-          onDownloadReport={() => setIsReportModalOpen(true)}
-        />
+        {/* 1. Totali mujor nga xhepi */}
+        <SummaryCard monthlyTotal={data?.summary?.currentMonth?.totalPaidOutOfPocket || 0} />
 
-        {/* 2. Grafiku i Kategorive (Pie / Bar Chart me Recharts) */}
-        {summaryData?.categoryBreakdown && summaryData.categoryBreakdown.length > 0 && (
-          <CategoryChart categoryData={summaryData.categoryBreakdown} />
+        {/* 2. Kush i ka borxh kujt + "Laje Borxhin" */}
+        {!loading && (
+          <BalanceSettlement
+            balance={data?.summary?.settlementBalance}
+            settlements={data?.settlements || []}
+            currentUserId={currentUserId}
+            householdId={household.id}
+            onChanged={(msg) => {
+              showToast(msg);
+              loadData();
+            }}
+            onDownloadReport={() => setIsReportModalOpen(true)}
+          />
         )}
 
-        {/* 3. Titulli i Listës së Shpenzimeve */}
+        {/* 3. Grafiku i Kategorive */}
+        {data?.summary?.categoryBreakdown?.length > 0 && (
+          <CategoryChart categoryData={data.summary.categoryBreakdown} />
+        )}
+
+        {/* 4. Lista e Shpenzimeve */}
         <div className="flex justify-between items-center mb-3 mt-4">
           <h3 className="text-sm font-bold text-slate-800">Shpenzimet e Fundit</h3>
-          <span className="text-xs font-medium text-slate-400">
-            {expenses?.length || 0} regjistrime
-          </span>
+          <span className="text-xs font-medium text-slate-400">{expenses.length} regjistrime</span>
         </div>
 
-        {/* Lista e Shpenzimeve me opsionet Ndrysho / Fshij */}
         {loading ? (
           <div className="py-12 text-center">
             <div className="inline-block w-7 h-7 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
             <p className="text-xs text-slate-400 mt-2 font-medium">Duke ngarkuar të dhënat...</p>
           </div>
-        ) : !expenses || expenses.length === 0 ? (
+        ) : expenses.length === 0 ? (
           <div className="py-12 text-center bg-white rounded-2xl border border-slate-100 p-6">
             <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-2 text-slate-400">
               <Receipt className="w-6 h-6" />
             </div>
             <p className="text-sm font-semibold text-slate-700">Nuk ka shpenzime të regjistruara</p>
             <p className="text-xs text-slate-400 mt-1">
-              Klikoni butonin "+ Shto" lart për të regjistruar shpenzimin tuaj të parë.
+              Klikoni butonin "+ Shto" lart për të regjistruar shpenzimin e parë të banesës.
             </p>
           </div>
         ) : (
           <div className="space-y-1">
             {expenses.map((expense) => (
               <ExpenseItem
-                key={expense?.id}
+                key={expense.id}
                 expense={expense}
                 currentUserId={currentUserId}
                 onEdit={onNavigateToEdit}
@@ -223,7 +320,7 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
       <ReportModal
         isOpen={isReportModalOpen}
         onClose={() => setIsReportModalOpen(false)}
-        groupId={currentGroupId}
+        household={household}
       />
     </div>
   );

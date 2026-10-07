@@ -32,7 +32,7 @@ export default function ExpenseItem({ expense, currentUserId = 1, onEdit, onDele
   const menuRef = useRef(null);
 
   const { Icon, color, bg, border } = getCategoryDetails(expense.category);
-  const isPayer = Number(expense.paid_by_user_id) === Number(currentUserId) || expense.is_payer === 1;
+  const isPayer = expense.is_payer === 1 || (currentUserId != null && expense.paid_by_user_id === currentUserId);
   const isShared = !isPersonalExpense(expense);
 
   // Mbylle menunë nëse klikohet jashtë
@@ -103,7 +103,8 @@ export default function ExpenseItem({ expense, currentUserId = 1, onEdit, onDele
         )}
       </div>
 
-      {/* Butoni me 3 pika (...) për Menaxhimin (Edit / Delete) */}
+      {/* Butoni me 3 pika (...) për Menaxhimin (Edit / Delete) - vetëm për atë që e ka paguar */}
+      {isPayer ? (
       <div className="relative shrink-0" ref={menuRef}>
         <button
           onClick={() => setShowMenu(!showMenu)}
@@ -140,6 +141,9 @@ export default function ExpenseItem({ expense, currentUserId = 1, onEdit, onDele
           </div>
         )}
       </div>
+      ) : (
+        <div className="w-8 shrink-0" />
+      )}
     </div>
   );
 }

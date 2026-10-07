@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Check, Users, User, Zap, Home, Utensils, Wifi, Droplets, Receipt, Sparkles, Info } from 'lucide-react';
 import { expenseApi, isPersonalExpense } from '../api/expenseApi';
+import { householdApi } from '../api/householdApi';
 
 const CATEGORIES = [
   { id: 'Rrymë', name: 'Rrymë', Icon: Zap, color: 'text-amber-600 bg-amber-50 border-amber-200' },
@@ -12,7 +13,7 @@ const CATEGORIES = [
   { id: 'Të tjera', name: 'Të tjera', Icon: Receipt, color: 'text-slate-600 bg-slate-50 border-slate-200' },
 ];
 
-export default function AddExpenseScreen({ onBack, onExpenseAdded, currentUserId = 1, expenseToEdit = null }) {
+export default function AddExpenseScreen({ onBack, onExpenseAdded, currentUserId, household, expenseToEdit = null }) {
   const isEditing = !!expenseToEdit;
 
   const [title, setTitle] = useState(expenseToEdit ? expenseToEdit.title : '');
@@ -26,9 +27,33 @@ export default function AddExpenseScreen({ onBack, onExpenseAdded, currentUserId
       : 'shared'
   );
   
-  const [memberCount, setMemberCount] = useState(3);
+  // Anëtarët realë të banesës; si parazgjedhje ndahet me të gjithë
+  const [members, setMembers] = useState([]);
+  const [selectedIds, setSelectedIds] = useState(
+    expenseToEdit?.member_ids?.length ? expenseToEdit.member_ids : null
+  );
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
+
+  useEffect(() => {
+    householdApi
+      .getMembers(household.id)
+      .then((list) => {
+        setMembers(list);
+        setSelectedIds((prev) => prev ?? list.map((m) => m.id));
+      })
+      .catch((err) => setErrorMsg(err.message));
+  }, [household.id]);
+
+  const selected = selectedIds || [];
+  const memberCount = selected.length;
+
+  const toggleMember = (id) => {
+    setSelectedIds((prev) => {
+      const list = prev || [];
+      return list.includes(id) ? list.filter((x) => x !== id) : [...list, id];
+    });
+  };
 
   const numericAmount = parseFloat(amount) || 0;
   const isShared = expenseType === 'shared';
@@ -50,6 +75,11 @@ export default function AddExpenseScreen({ onBack, onExpenseAdded, currentUserId
       return;
     }
 
+    if (isShared && memberCount === 0) {
+      setErrorMsg('Zgjidhni të paktën një anëtar me të cilin ndahet shpenzimi.');
+      return;
+    }
+
     try {
       setLoading(true);
 
@@ -57,12 +87,8 @@ export default function AddExpenseScreen({ onBack, onExpenseAdded, currentUserId
         title: title.trim(),
         total_amount: numericAmount,
         category: category,
-        paid_by_user_id: currentUserId,
         isPersonal: !isShared,
-        is_shared: isShared,
-        is_personal: !isShared,
-        group_id: isShared ? 1 : null,
-        member_count: isShared ? memberCount : 1
+        member_ids: isShared ? selected : []
       };
 
       if (isEditing) {
@@ -218,30 +244,42 @@ export default function AddExpenseScreen({ onBack, onExpenseAdded, currentUserId
           <div className="bg-indigo-50/60 border border-indigo-200/80 rounded-3xl p-4 shadow-sm space-y-3 animate-in fade-in duration-200">
             <div className="flex justify-between items-center">
               <span className="text-[11px] font-bold text-indigo-900 uppercase tracking-wider">
-                Numri i personave në ndarje:
+                Ndahet me:
               </span>
               <span className="text-xs font-bold text-indigo-700 bg-white px-2 py-0.5 rounded-lg border border-indigo-200 shadow-2xs">
                 {memberCount} banorë
               </span>
             </div>
 
-            {/* Butonat për numrin e banorëve */}
-            <div className="grid grid-cols-4 gap-2">
-              {[2, 3, 4, 5].map((count) => (
-                <button
-                  type="button"
-                  key={count}
-                  onClick={() => setMemberCount(count)}
-                  className={`py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
-                    memberCount === count
-                      ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                      : 'bg-white text-slate-600 border-indigo-100 hover:bg-indigo-100/50'
-                  }`}
-                >
-                  {count} vetë
-                </button>
-              ))}
+            {/* Anëtarët e banesës (kliko për ta përfshirë / përjashtuar) */}
+            <div className="flex flex-wrap gap-2">
+              {members.length === 0 && (
+                <span className="text-xs text-indigo-700/70">Duke ngarkuar anëtarët...</span>
+              )}
+              {members.map((m) => {
+                const isOn = selected.includes(m.id);
+                return (
+                  <button
+                    type="button"
+                    key={m.id}
+                    onClick={() => toggleMember(m.id)}
+                    className={`flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                      isOn
+                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                        : 'bg-white text-slate-500 border-indigo-100 hover:bg-indigo-100/50 line-through'
+                    }`}
+                  >
+                    {isOn && <Check className="w-3.5 h-3.5" />}
+                    <span>{m.id === currentUserId ? 'Unë' : m.name.split(' ')[0]}</span>
+                  </button>
+                );
+              })}
             </div>
+            {members.length === 1 && (
+              <p className="text-[11px] text-indigo-800/80">
+                Je i vetëm në banesë. Fto shokët me kodin <strong>{household.code}</strong> që të ndani shpenzimet.
+              </p>
+            )}
 
             {/* Llogaritja live e ndarjes për person */}
             <div className="bg-white border border-indigo-200 rounded-2xl p-3 flex items-center justify-between shadow-xs">

@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { User, Mail, Lock, Eye, EyeOff, UserPlus, ArrowRight } from 'lucide-react';
+import { User, Mail, Lock, Eye, EyeOff, UserPlus, ArrowRight, KeyRound } from 'lucide-react';
 import { authApi } from '../api/authApi';
 
 export default function RegisterScreen({ onRegisterSuccess, onNavigateToLogin }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [householdCode, setHouseholdCode] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
@@ -35,8 +36,11 @@ export default function RegisterScreen({ onRegisterSuccess, onNavigateToLogin })
         name: name.trim(),
         email: email.trim(),
         password,
-        group_id: 1 // Lidhet me grupin e banesës
+        household_code: householdCode
       });
+
+      // Pa konfirmim email-i, Supabase e kyç përdoruesin direkt (App e kap ndryshimin e sesionit)
+      if (!res.needsConfirmation) return;
 
       if (onRegisterSuccess) {
         onRegisterSuccess({
@@ -153,6 +157,32 @@ export default function RegisterScreen({ onRegisterSuccess, onNavigateToLogin })
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
+          </div>
+
+          {/* Kodi i Banesës (opsional) */}
+          <div>
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+              Kodi i Banesës <span className="normal-case font-medium text-slate-400">(opsional)</span>
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                <KeyRound className="w-4 h-4 text-slate-400" />
+              </div>
+              <input
+                type="text"
+                value={householdCode}
+                onChange={(e) => {
+                  setHouseholdCode(e.target.value.toUpperCase());
+                  setErrorMsg(null);
+                }}
+                placeholder="psh. BANESA-1234"
+                autoCapitalize="characters"
+                className="w-full bg-slate-50/60 border border-slate-200 focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 rounded-xl pl-10 pr-4 py-3 text-sm text-slate-800 placeholder-slate-400 outline-none transition-all duration-200 tracking-wider"
+              />
+            </div>
+            <p className="text-[11px] text-slate-400 mt-1.5">
+              Nëse një shok ju ka dhënë kodin, do të bashkoheni direkt me banesën e tij.
+            </p>
           </div>
 
           {/* Butoni Kryesor i Regjistrimit */}
