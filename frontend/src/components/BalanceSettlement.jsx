@@ -16,7 +16,7 @@ function SettleModal({ row, onClose, onConfirm, loading, error }) {
   const tooMuch = numeric > row.amount + 0.001;
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-4" onClick={onClose}>
       <div
         role="dialog"
         aria-modal="true"

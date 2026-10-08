@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { Plus, AlertTriangle, Receipt, CheckCircle, LogOut, Copy, Check, Users, Share2, DoorOpen, UserPlus, ChevronDown } from 'lucide-react';
+import { Plus, AlertTriangle, Receipt, CheckCircle, LogOut, Copy, Check, Users, Share2, DoorOpen, UserPlus, ChevronDown, Moon } from 'lucide-react';
 import SummaryCard from '../components/SummaryCard';
 import BalanceSettlement from '../components/BalanceSettlement';
 import ExpenseItem from '../components/ExpenseItem';
@@ -9,6 +9,7 @@ import ReportModal from '../components/ReportModal';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { expenseApi } from '../api/expenseApi';
 import { householdApi } from '../api/householdApi';
+import { isDarkTheme, setDarkTheme } from '../lib/theme';
 import {
   isPersonalExpense,
   isInMonth,
@@ -37,6 +38,7 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
   const [toast, setToast] = useState(null); // { message, type: 'success' | 'error' }
   const [showInvite, setShowInvite] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [darkTheme, setDarkThemeState] = useState(isDarkTheme);
   const [copied, setCopied] = useState(false);
   const toastTimer = useRef(null);
   const menuRef = useRef(null);
@@ -277,6 +279,24 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
                 >
                   <UserPlus className="w-4 h-4 text-slate-500" />
                   <span>Banesa & ftesa</span>
+                </button>
+                {/* Tema e errët: opsion shtesë që përdoruesi e ndez vetë (parazgjedhja është e çelët) */}
+                <button
+                  role="switch"
+                  aria-checked={darkTheme}
+                  onClick={() => {
+                    setDarkTheme(!darkTheme);
+                    setDarkThemeState(!darkTheme);
+                  }}
+                  className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center justify-between cursor-pointer"
+                >
+                  <span className="flex items-center space-x-2.5">
+                    <Moon className="w-4 h-4 text-slate-500" />
+                    <span>Tema e errët</span>
+                  </span>
+                  <span className={`w-9 h-5 rounded-full p-0.5 transition-colors ${darkTheme ? 'bg-indigo-600' : 'bg-slate-300'}`}>
+                    <span className={`block w-4 h-4 rounded-full bg-white shadow transition-transform ${darkTheme ? 'translate-x-4' : ''}`} />
+                  </span>
                 </button>
                 <button
                   onClick={() => {

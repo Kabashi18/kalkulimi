@@ -1,27 +1,16 @@
+/* Ngjyrat e temave (e çelët / e errët) dhe e markës: shih src/theme.css */
+@import './theme.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Ngjyra e markës: "Petrol" (kanalet RGB). Ndryshojeni këtu për të ndërruar ngjyrën kryesore të aplikacionit. */
-:root {
-  --brand-50: 236 254 255;
-  --brand-100: 207 250 254;
-  --brand-200: 165 243 252;
-  --brand-300: 103 232 249;
-  --brand-400: 6 182 212;
-  --brand-500: 8 145 178;
-  --brand-600: 14 116 144;
-  --brand-700: 21 94 117;
-  --brand-800: 22 78 99;
-  --brand-900: 8 51 68;
-  --brand-950: 4 35 46;
-}
 
 body {
   margin: 0;
   padding: 0;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-  background-color: #0f172a;
+  background-color: rgb(var(--slate-50));
 }
 
 /* Custom scrollbar for mobile feel */
@@ -32,6 +21,6 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: rgb(var(--slate-300));
   border-radius: 4px;
 }
