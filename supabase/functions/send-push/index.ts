@@ -16,17 +16,15 @@ const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE
   auth: { persistSession: false }
 });
 
-const VAPID_PUBLIC_KEY =
-  Deno.env.get('VAPID_PUBLIC_KEY') ||
-  'BJ_zFMvA-lTGRDItQ8JxNseFqm2OqvCscK_ydHIaubDdEOfQpmgXrke2AP8oXgOJQcsmpES8ZBIZPpwbBW6WXso';
-const VAPID_PRIVATE_KEY =
-  Deno.env.get('VAPID_PRIVATE_KEY') || 'bAk9ZifGvEieo5As6iU1da96WLPnfLU3oL-y4EvRZQ4';
+// Sekretet vijnë VETËM nga Supabase (Edge Functions -> Secrets) - kurrë në kod: repo është publik
+const VAPID_PUBLIC_KEY = Deno.env.get('VAPID_PUBLIC_KEY');
+const VAPID_PRIVATE_KEY = Deno.env.get('VAPID_PRIVATE_KEY');
 const VAPID_SUBJECT = Deno.env.get('VAPID_SUBJECT') || 'mailto:admin@kalkulimi.app';
-const PUSH_WEBHOOK_SECRET =
-  Deno.env.get('PUSH_WEBHOOK_SECRET') ||
-  'bc209424a6ea8ca3fbccf2402a228070e0e182f0075c4d5ce8bb660583eff7bc';
+const PUSH_WEBHOOK_SECRET = Deno.env.get('PUSH_WEBHOOK_SECRET');
 
-webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
+  webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+}
 
 
 
