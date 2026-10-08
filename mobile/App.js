@@ -8,20 +8,21 @@ import AddExpenseScreen from './src/screens/AddExpenseScreen';
 import { authApi } from './src/api/authApi';
 import { householdApi } from './src/api/householdApi';
 import { isSupabaseConfigured, supabaseConfigError } from './src/lib/supabaseClient';
+import { C, isDark, applyDark, loadDarkPreference, saveDarkPreference } from './src/lib/theme';
 
 const Loading = ({ text }) => (
-  <View className="flex-1 items-center justify-center bg-slate-50">
-    <ActivityIndicator size="large" color="#0e7490" />
-    <Text className="text-slate-500 mt-3 text-sm">{text}</Text>
+  <View className="flex-1 items-center justify-center bg-slate-50 dark:bg-slate-950">
+    <ActivityIndicator size="large" color={C.brand} />
+    <Text className="text-slate-500 dark:text-slate-400 mt-3 text-sm">{text}</Text>
   </View>
 );
 
 const ConfigMissing = () => (
-  <SafeAreaView className="flex-1 bg-slate-50 justify-center px-6">
-    <View className="bg-white rounded-3xl p-6 border border-amber-200">
-      <Text className="text-lg font-black text-slate-800 mb-2">Mungon konfigurimi i Supabase</Text>
-      <Text className="text-xs font-semibold text-amber-900 bg-amber-50 p-3 rounded-xl mb-3">{supabaseConfigError}</Text>
-      <Text className="text-sm text-slate-600">
+  <SafeAreaView className="flex-1 bg-slate-50 dark:bg-slate-950 justify-center px-6">
+    <View className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-amber-200 dark:border-amber-800">
+      <Text className="text-lg font-black text-slate-800 dark:text-slate-200 mb-2">Mungon konfigurimi i Supabase</Text>
+      <Text className="text-xs font-semibold text-amber-900 dark:text-amber-100 bg-amber-50 dark:bg-amber-950 p-3 rounded-xl mb-3">{supabaseConfigError}</Text>
+      <Text className="text-sm text-slate-600 dark:text-slate-400">
         Krijoni mobile/.env (shikoni .env.example) dhe rinisni Expo me: npx expo start -c
       </Text>
     </View>
@@ -35,6 +36,21 @@ export default function App() {
   const [screen, setScreen] = useState('dashboard');
   const [expenseToEdit, setExpenseToEdit] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  // Tema e errët: opsion i përdoruesit (parazgjedhja e çelët), ruhet në AsyncStorage
+  const [darkMode, setDarkMode] = useState(isDark);
+
+  useEffect(() => {
+    loadDarkPreference().then((enabled) => {
+      applyDark(enabled);
+      setDarkMode(enabled);
+    });
+  }, []);
+
+  const handleToggleDark = (enabled) => {
+    applyDark(enabled);
+    setDarkMode(enabled);
+    saveDarkPreference(enabled);
+  };
 
   useEffect(() => {
     if (!isSupabaseConfigured) return undefined;
@@ -102,6 +118,8 @@ export default function App() {
         household={profile.household}
         onLogout={handleLogout}
         onLeftHousehold={loadProfile}
+        darkMode={darkMode}
+        onToggleDark={handleToggleDark}
         onNavigateToAdd={() => {
           setExpenseToEdit(null);
           setScreen('addExpense');
@@ -115,8 +133,9 @@ export default function App() {
   }
 
   return (
-    <View className="flex-1 bg-slate-50">
-      <StatusBar style="dark" />
+    // key: kur ndërrohet tema, ekrani rivizatohet që edhe ngjyrat e ikonave (C.*) të ndjekin temën
+    <View key={darkMode ? 'dark' : 'light'} className="flex-1 bg-slate-50 dark:bg-slate-950">
+      <StatusBar style={darkMode ? 'light' : 'dark'} />
       {content}
     </View>
   );

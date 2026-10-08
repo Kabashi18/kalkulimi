@@ -73,6 +73,7 @@ export const toAppError = (error, fallback = 'Ndodhi një gabim. Provoni sërish
   const msg = error?.message || '';
   if (/Invalid API key|No API key found/i.test(msg)) return new Error('Çelësi i Supabase është i pavlefshëm. Kontrolloni mobile/.env');
   if (/Invalid login credentials/i.test(msg)) return new Error('Email-i ose fjalëkalimi nuk është i saktë.');
+  if (/New password should be different/i.test(msg)) return new Error('Fjalëkalimi i ri duhet të jetë i ndryshëm nga i vjetri.');
   if (/rate limit/i.test(msg)) return new Error('Shumë regjistrime brenda një kohe të shkurtër. Provoni sërish pas pak minutash.');
   if (/Email not confirmed/i.test(msg)) return new Error('Ju lutem konfirmoni email-in tuaj (shikoni inbox-in) para kyçjes.');
   if (/already registered|already been registered/i.test(msg)) return new Error('Ky email është i regjistruar tashmë!');

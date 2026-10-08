@@ -63,9 +63,30 @@ export const authApi = {
     return data.session || null;
   },
 
-  // 5. Dëgjon ndryshimet e sesionit (kyçje / dalje / skadim i token-it)
+  // 5. Dëgjon ndryshimet e sesionit (kyçje / dalje / skadim i token-it).
+  //    `event` është p.sh. 'SIGNED_IN', 'SIGNED_OUT' ose 'PASSWORD_RECOVERY' (lidhja nga email-i i rivendosjes)
   onAuthChange: (callback) => {
-    const { data } = supabase.auth.onAuthStateChange((_event, session) => callback(session));
+    const { data } = supabase.auth.onAuthStateChange((event, session) => callback(session, event));
     return () => data.subscription.unsubscribe();
+  },
+
+  // 6. "Keni harruar fjalëkalimin?": dërgon email me lidhje rivendosjeje.
+  //    `redirectTo` = faqja web ku hapet lidhja (pa të përdoret "Site URL" e projektit në Supabase).
+  requestPasswordReset: async (email, redirectTo) => {
+    if (!email || !email.trim()) throw new Error('Ju lutem shkruani email-in e llogarisë.');
+    const { error } = await supabase.auth.resetPasswordForEmail(
+      email.trim().toLowerCase(),
+      redirectTo ? { redirectTo } : undefined
+    );
+    if (error) throw toAppError(error, 'Dështoi dërgimi i email-it.');
+    return { success: true };
+  },
+
+  // 7. Vendos fjalëkalimin e ri (pasi përdoruesi ka hapur lidhjen nga email-i)
+  updatePassword: async (password) => {
+    if (!password || password.length < 6) throw new Error('Fjalëkalimi duhet të ketë të paktën 6 karaktere.');
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) throw toAppError(error, 'Dështoi ndryshimi i fjalëkalimit.');
+    return { success: true };
   }
 };

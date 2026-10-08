@@ -4,6 +4,8 @@ import AddExpenseScreen from './screens/AddExpenseScreen';
 import LoginScreen from './screens/LoginScreen';
 import RegisterScreen from './screens/RegisterScreen';
 import HouseholdSetupScreen from './screens/HouseholdSetupScreen';
+import ForgotPasswordScreen from './screens/ForgotPasswordScreen';
+import ResetPasswordScreen from './screens/ResetPasswordScreen';
 import { authApi } from './api/authApi';
 import { householdApi } from './api/householdApi';
 import { isSupabaseConfigured, supabaseConfigError } from './lib/supabaseClient';
@@ -42,12 +44,18 @@ export default function App() {
   const [registrationNotice, setRegistrationNotice] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [expenseToEdit, setExpenseToEdit] = useState(null);
+  // true kur përdoruesi ka hapur lidhjen e rivendosjes së fjalëkalimit nga email-i
+  const [passwordRecovery, setPasswordRecovery] = useState(false);
+  const [lastEmail, setLastEmail] = useState('');
 
   // Sesioni i Supabase: rikthehet automatikisht pas rifreskimit të faqes
   useEffect(() => {
     if (!isSupabaseConfigured) return undefined;
     authApi.getSession().then(setSession).catch(() => setSession(null));
-    return authApi.onAuthChange(setSession);
+    return authApi.onAuthChange((nextSession, event) => {
+      setSession(nextSession);
+      if (event === 'PASSWORD_RECOVERY') setPasswordRecovery(true);
+    });
   }, []);
 
   const userId = session?.user?.id;
@@ -109,7 +117,27 @@ export default function App() {
     if (!isSupabaseConfigured) return <ConfigMissing />;
     if (session === undefined) return <FullScreenSpinner text="Duke kontrolluar sesionin..." />;
 
+    if (passwordRecovery && session) {
+      return (
+        <ResetPasswordScreen
+          onDone={() => {
+            setPasswordRecovery(false);
+            // Heq tokenat e lidhjes nga adresa e faqes
+            window.history.replaceState(null, '', window.location.pathname);
+          }}
+        />
+      );
+    }
+
     if (!session) {
+      if (authView === 'forgot') {
+        return (
+          <ForgotPasswordScreen
+            initialEmail={lastEmail}
+            onBack={() => setAuthView('login')}
+          />
+        );
+      }
       return authView === 'login' ? (
         <LoginScreen
           onLoginSuccess={() => setRegistrationNotice(null)}
@@ -117,7 +145,12 @@ export default function App() {
             setRegistrationNotice(null);
             setAuthView('register');
           }}
-          initialEmail={registrationNotice?.email || ''}
+          onForgotPassword={(email) => {
+            setLastEmail(email || '');
+            setRegistrationNotice(null);
+            setAuthView('forgot');
+          }}
+          initialEmail={registrationNotice?.email || lastEmail}
           successMessage={registrationNotice?.message || null}
         />
       ) : (

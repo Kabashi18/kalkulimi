@@ -4,7 +4,8 @@ import { authApi } from '../api/authApi';
 
 export default function LoginScreen({ 
   onLoginSuccess, 
-  onNavigateToRegister, 
+  onNavigateToRegister,
+  onForgotPassword,
   initialEmail = '', 
   successMessage = null 
 }) {
@@ -106,9 +107,20 @@ export default function LoginScreen({
 
           {/* Fusha e Fjalëkalimit */}
           <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-              Fjalëkalimi
-            </label>
+            <div className="flex justify-between items-baseline mb-1.5">
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                Fjalëkalimi
+              </label>
+              {onForgotPassword && (
+                <button
+                  type="button"
+                  onClick={() => onForgotPassword(email.trim())}
+                  className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-700 hover:underline cursor-pointer"
+                >
+                  Keni harruar fjalëkalimin?
+                </button>
+              )}
+            </div>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
                 <Lock className="w-4 h-4 text-slate-500" />

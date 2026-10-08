@@ -16,6 +16,8 @@ const brand = {
 };
 
 module.exports = {
+  // Tema e errët ndizet nga app-i (src/lib/theme.js), jo automatikisht nga sistemi
+  darkMode: 'class',
   content: ['./App.{js,jsx,ts,tsx}', './src/**/*.{js,jsx,ts,tsx}'],
   theme: {
     extend: {
