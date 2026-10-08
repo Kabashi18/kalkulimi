@@ -11,7 +11,7 @@ import { isSupabaseConfigured, supabaseConfigError } from './lib/supabaseClient'
 const FullScreenSpinner = ({ text }) => (
   <div className="my-auto text-center">
     <div className="inline-block w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-    <p className="text-xs text-slate-400 mt-2 font-medium">{text}</p>
+    <p className="text-xs text-slate-500 mt-2 font-medium">{text}</p>
   </div>
 );
 

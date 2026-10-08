@@ -19,7 +19,7 @@ const EFFECT = {
   lent: { label: 'ti dhe hua', label2: 'text-emerald-600', amount: 'text-emerald-600' },
   borrowed: { label: 'ti more hua', label2: 'text-rose-600', amount: 'text-rose-600' },
   personal: { label: 'personale', label2: 'text-slate-500', amount: 'text-slate-700' },
-  none: { label: 'nuk të përfshin', label2: 'text-slate-400', amount: 'text-slate-400' }
+  none: { label: 'nuk të përfshin', label2: 'text-slate-500', amount: 'text-slate-500' }
 };
 
 // Shtypja e gjatë (ose ikona ⋮) hap opsionet Ndrysho / Fshij për paguesin ose regjistruesin

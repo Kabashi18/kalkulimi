@@ -33,7 +33,7 @@ export default function HouseholdSetupScreen({ userName, error = null, onDone, o
             <Ionicons name="home" size={28} color="#fff" />
           </View>
           <Text className="text-2xl font-black text-slate-800">Mirë se erdhe, {userName?.split(' ')?.[0]}!</Text>
-          <Text className="text-xs text-slate-400 mt-1 text-center">
+          <Text className="text-xs text-slate-500 mt-1 text-center">
             Bashkohu me banesën e shokëve ose krijo një të re
           </Text>
         </View>
@@ -51,7 +51,7 @@ export default function HouseholdSetupScreen({ userName, error = null, onDone, o
               }}
               className={`flex-1 flex-row items-center justify-center py-2.5 rounded-xl ${mode === opt.id ? 'bg-white' : ''}`}
             >
-              <Ionicons name={opt.icon} size={16} color={mode === opt.id ? '#4338ca' : '#475569'} />
+              <Ionicons name={opt.icon} size={16} color={mode === opt.id ? '#155e75' : '#475569'} />
               <Text className={`text-xs font-bold ml-1.5 ${mode === opt.id ? 'text-indigo-700' : 'text-slate-600'}`}>
                 {opt.label}
               </Text>
@@ -87,7 +87,7 @@ export default function HouseholdSetupScreen({ userName, error = null, onDone, o
             className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-800"
           />
         )}
-        <Text className="text-xs text-slate-400 mt-1.5">
+        <Text className="text-xs text-slate-500 mt-1.5">
           {mode === 'join'
             ? 'Kërkojani kodin shokut që e ka krijuar banesën.'
             : "Do të marrësh një kod unik (p.sh. BANESA-4821) për t'ua dhënë shokëve."}

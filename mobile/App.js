@@ -11,7 +11,7 @@ import { isSupabaseConfigured, supabaseConfigError } from './src/lib/supabaseCli
 
 const Loading = ({ text }) => (
   <View className="flex-1 items-center justify-center bg-slate-50">
-    <ActivityIndicator size="large" color="#4f46e5" />
+    <ActivityIndicator size="large" color="#0e7490" />
     <Text className="text-slate-500 mt-3 text-sm">{text}</Text>
   </View>
 );

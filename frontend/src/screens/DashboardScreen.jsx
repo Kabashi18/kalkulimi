@@ -246,7 +246,7 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
             >
               <Users className="w-3.5 h-3.5" />
               <span className="truncate max-w-[180px]">{household.name}</span>
-              <span className="text-slate-400">· {members.length || 1}</span>
+              <span className="text-slate-500">· {members.length || 1}</span>
               <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showInvite ? 'rotate-180' : ''}`} />
             </button>
             <h1 className="text-lg font-bold text-slate-900 truncate">Përshëndetje, {activeUserName.split(' ')[0]}</h1>
@@ -303,7 +303,7 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
                 <span
                   key={m.id}
                   className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
-                    m.id === currentUserId ? 'bg-indigo-600 text-white' : 'bg-white text-slate-700 border border-slate-200'
+                    m.id === currentUserId ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' : 'bg-white text-slate-700 border border-slate-200'
                   }`}
                 >
                   {m.id === currentUserId ? `${m.name} (ti)` : m.name}
@@ -406,7 +406,7 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
 
             {groupedExpenses.length === 0 ? (
               <div className="py-10 text-center bg-white rounded-3xl border border-slate-100 px-6">
-                <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3 text-slate-400">
+                <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3 text-slate-500">
                   <Receipt className="w-6 h-6" />
                 </div>
                 <p className="text-base font-semibold text-slate-800">

@@ -40,7 +40,7 @@ export default function CategoryChart({ categoryData = [] }) {
             <div className="flex justify-between items-baseline text-sm mb-1">
               <span className="font-medium text-slate-700">{r.name}</span>
               <span className="font-semibold text-slate-900">
-                {formatEuro(r.value)} <span className="text-xs font-normal text-slate-400">· {r.percentage}%</span>
+                {formatEuro(r.value)} <span className="text-xs font-normal text-slate-500">· {r.percentage}%</span>
               </span>
             </div>
             <div className="h-2 bg-slate-100 rounded-full overflow-hidden" aria-hidden="true">

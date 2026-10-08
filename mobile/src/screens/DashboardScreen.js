@@ -187,8 +187,8 @@ export default function DashboardScreen({ user, household, onNavigateToAdd, onNa
             {inviteRow}
             <View className="flex-row flex-wrap mt-3">
               {members.map((m) => (
-                <View key={m.id} className={`px-2.5 py-1 rounded-full mr-1.5 mb-1.5 ${m.id === user?.id ? 'bg-indigo-600' : 'bg-white border border-slate-200'}`}>
-                  <Text className={`text-xs font-semibold ${m.id === user?.id ? 'text-white' : 'text-slate-700'}`}>
+                <View key={m.id} className={`px-2.5 py-1 rounded-full mr-1.5 mb-1.5 ${m.id === user?.id ? 'bg-indigo-50 border border-indigo-200' : 'bg-white border border-slate-200'}`}>
+                  <Text className={`text-xs font-semibold ${m.id === user?.id ? 'text-indigo-700' : 'text-slate-700'}`}>
                     {m.id === user?.id ? `${m.name} (ti)` : m.name}
                   </Text>
                 </View>
@@ -203,7 +203,7 @@ export default function DashboardScreen({ user, household, onNavigateToAdd, onNa
 
       {loading ? (
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" color="#4f46e5" />
+          <ActivityIndicator size="large" color="#0e7490" />
           <Text className="text-slate-500 mt-3 text-sm">Duke ngarkuar të dhënat...</Text>
         </View>
       ) : (
@@ -229,7 +229,7 @@ export default function DashboardScreen({ user, household, onNavigateToAdd, onNa
                 setRefreshing(true);
                 loadData();
               }}
-              colors={['#4f46e5']}
+              colors={['#0e7490']}
             />
           }
           ListHeaderComponent={
@@ -243,7 +243,7 @@ export default function DashboardScreen({ user, household, onNavigateToAdd, onNa
               {members.length === 1 && (
                 <View className="mb-4 p-5 rounded-3xl bg-white border border-indigo-100">
                   <View className="flex-row items-center mb-1">
-                    <Ionicons name="person-add-outline" size={18} color="#4f46e5" />
+                    <Ionicons name="person-add-outline" size={18} color="#0e7490" />
                     <Text className="text-base font-bold text-slate-900 ml-2">Fto shokët e banesës</Text>
                   </View>
                   <Text className="text-sm text-slate-500 mb-3">Je i vetëm në "{household.name}". Dërgoju shokëve këtë kod.</Text>
@@ -306,7 +306,7 @@ export default function DashboardScreen({ user, household, onNavigateToAdd, onNa
       <TouchableOpacity
         onPress={onNavigateToAdd}
         className="absolute bottom-8 right-5 h-14 pl-4 pr-5 rounded-full bg-indigo-600 flex-row items-center"
-        style={{ elevation: 6, shadowColor: '#4f46e5', shadowOpacity: 0.3, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } }}
+        style={{ elevation: 6, shadowColor: '#0e7490', shadowOpacity: 0.3, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } }}
         accessibilityLabel="Shto shpenzim"
       >
         <Ionicons name="add" size={22} color="#fff" />

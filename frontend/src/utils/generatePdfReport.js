@@ -5,7 +5,7 @@ export const generatePdfReport = (reportData, groupName = 'Banesa në Qendër') 
   const doc = new jsPDF();
 
   // Ngjyrat kryesore
-  const primaryColor = [79, 70, 229]; // Indigo-600
+  const primaryColor = [14, 116, 144]; // Petrol (ngjyra e markës)
   const textColor = [30, 41, 59];    // Slate-800
 
   // 1. Titulli dhe Header
@@ -68,7 +68,7 @@ export const generatePdfReport = (reportData, groupName = 'Banesa në Qendër') 
     body: membersTableData,
     theme: 'grid',
     headStyles: {
-      fillColor: [79, 70, 229],
+      fillColor: [14, 116, 144],
       textColor: [255, 255, 255],
       fontStyle: 'bold',
     },

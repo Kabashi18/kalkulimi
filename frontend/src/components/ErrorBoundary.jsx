@@ -16,7 +16,7 @@ export function FatalErrorScreen({ title = 'Diçka shkoi keq', message, details 
         )}
         <button
           onClick={() => window.location.reload()}
-          style={{ width: '100%', background: '#4f46e5', color: '#fff', border: 0, borderRadius: 14, padding: '12px 16px', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}
+          style={{ width: '100%', background: '#0e7490', color: '#fff', border: 0, borderRadius: 14, padding: '12px 16px', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}
         >
           Rifresko faqen
         </button>

@@ -53,13 +53,13 @@ export default function LoginScreen({
         
         {/* Header & Logo */}
         <div className="text-center mb-7">
-          <div className="w-14 h-14 bg-gradient-to-tr from-indigo-600 to-violet-600 rounded-2xl mx-auto flex items-center justify-center text-white shadow-lg shadow-indigo-500/25 mb-4">
+          <div className="w-14 h-14 bg-indigo-600 rounded-2xl mx-auto flex items-center justify-center text-white shadow-lg shadow-indigo-500/25 mb-4">
             <Wallet className="w-7 h-7" />
           </div>
           <h1 className="text-2xl font-black text-slate-800 tracking-tight">
             Mirësevini përsëri
           </h1>
-          <p className="text-xs text-slate-400 mt-1.5 font-medium leading-relaxed">
+          <p className="text-xs text-slate-500 mt-1.5 font-medium leading-relaxed">
             Menaxhoni faturat dhe barazimin e banesës lehtësisht
           </p>
         </div>
@@ -88,7 +88,7 @@ export default function LoginScreen({
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                <Mail className="w-4 h-4 text-slate-400" />
+                <Mail className="w-4 h-4 text-slate-500" />
               </div>
               <input
                 type="email"
@@ -111,7 +111,7 @@ export default function LoginScreen({
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                <Lock className="w-4 h-4 text-slate-400" />
+                <Lock className="w-4 h-4 text-slate-500" />
               </div>
               <input
                 type={showPassword ? 'text' : 'password'}
@@ -127,7 +127,7 @@ export default function LoginScreen({
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 transition-colors"
+                className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-500 hover:text-slate-600 transition-colors"
                 title={showPassword ? 'Fshih fjalëkalimin' : 'Shfaq fjalëkalimin'}
               >
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}

@@ -18,7 +18,7 @@ const EFFECT_STYLES = {
   lent: { label: 'ti dhe hua', color: 'text-emerald-600' },
   borrowed: { label: 'ti more hua', color: 'text-rose-600' },
   personal: { label: 'personale', color: 'text-slate-500' },
-  none: { label: 'nuk të përfshin', color: 'text-slate-400' }
+  none: { label: 'nuk të përfshin', color: 'text-slate-500' }
 };
 
 export default function ExpenseItem({ expense, currentUserId, onEdit, onDelete }) {
@@ -77,7 +77,7 @@ export default function ExpenseItem({ expense, currentUserId, onEdit, onDelete }
         <div className="relative shrink-0 ml-1" ref={menuRef}>
           <button
             onClick={() => setShowMenu(!showMenu)}
-            className="w-9 h-9 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-700 cursor-pointer"
+            className="w-9 h-9 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500 hover:text-slate-700 cursor-pointer"
             aria-label="Opsionet e shpenzimit"
             aria-expanded={showMenu}
           >

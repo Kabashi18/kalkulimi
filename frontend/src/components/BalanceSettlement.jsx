@@ -41,7 +41,7 @@ function SettleModal({ row, onClose, onConfirm, loading, error }) {
 
         <div className="flex items-center justify-center space-x-3 py-3 mb-4 bg-slate-50 rounded-2xl text-sm font-semibold">
           <span className="text-slate-900">{iPay ? 'Ti' : row.name}</span>
-          <ArrowRight className="w-4 h-4 text-slate-400" />
+          <ArrowRight className="w-4 h-4 text-slate-500" />
           <span className="text-slate-900">{iPay ? row.name : 'Ty'}</span>
         </div>
 
@@ -49,7 +49,7 @@ function SettleModal({ row, onClose, onConfirm, loading, error }) {
           Shuma e paguar
         </label>
         <div className="relative">
-          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg font-bold text-slate-400">€</span>
+          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg font-bold text-slate-500">€</span>
           <input
             id="settle-amount"
             type="number"
@@ -201,7 +201,7 @@ export default function BalanceSettlement({
               <li key={s.id} className="flex items-center justify-between text-sm">
                 <span className="text-slate-600 truncate mr-2">
                   {s.from_user === currentUserId ? 'Ti' : s.from_name.split(' ')[0]} → {s.to_user === currentUserId ? 'ty' : s.to_name.split(' ')[0]}
-                  <span className="text-slate-400"> · {formatDate(s.created_at)}</span>
+                  <span className="text-slate-500"> · {formatDate(s.created_at)}</span>
                 </span>
                 <span className="flex items-center space-x-2 shrink-0">
                   <span className="font-semibold text-slate-900">{formatEuro(s.amount)}</span>
@@ -211,7 +211,7 @@ export default function BalanceSettlement({
                       disabled={undoingId === s.id}
                       title="Anulo pagesën"
                       aria-label="Anulo pagesën"
-                      className="w-7 h-7 rounded-full flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 disabled:opacity-40 cursor-pointer"
+                      className="w-7 h-7 rounded-full flex items-center justify-center text-slate-500 hover:text-rose-600 hover:bg-rose-50 disabled:opacity-40 cursor-pointer"
                     >
                       <Undo2 className="w-3.5 h-3.5" />
                     </button>

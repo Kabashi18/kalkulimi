@@ -31,7 +31,7 @@ export default function SummaryCard({ month, monthlyTotal = 0, isCurrentMonth = 
         <span className="text-sm text-slate-500">Paguar nga xhepi yt</span>
         <span className="text-2xl font-extrabold text-slate-900 tracking-tight">{formatEuro(monthlyTotal)}</span>
       </div>
-      <p className="text-xs text-slate-400 mt-0.5 text-right">personale + të përbashkëta që i pagove ti</p>
+      <p className="text-xs text-slate-500 mt-0.5 text-right">personale + të përbashkëta që i pagove ti</p>
     </div>
   );
 }

@@ -128,7 +128,7 @@ export default function ReportModal({ isOpen, onClose, household }) {
                       >
                         <div className="flex items-center space-x-2 font-medium text-slate-800">
                           <span className="font-bold text-rose-600">{s.from}</span>
-                          <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
+                          <ArrowRight className="w-3.5 h-3.5 text-slate-500" />
                           <span className="font-bold text-emerald-600">{s.to}</span>
                         </div>
                         <span className="font-black text-slate-900 bg-slate-100 px-2 py-1 rounded-lg">

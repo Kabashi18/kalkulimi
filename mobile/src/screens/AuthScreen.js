@@ -70,7 +70,7 @@ export default function AuthScreen() {
               <Text className="text-2xl font-black text-slate-800">
                 {isLogin ? 'Mirësevini përsëri' : 'Krijo Llogari të Re'}
               </Text>
-              <Text className="text-xs text-slate-400 mt-1 text-center">
+              <Text className="text-xs text-slate-500 mt-1 text-center">
                 {isLogin ? 'Menaxhoni faturat dhe barazimin e banesës' : 'Bashkohu me banorët për të ndarë shpenzimet'}
               </Text>
             </View>
