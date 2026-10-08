@@ -6,7 +6,10 @@
 
 import { supabase, toAppError } from '../lib/supabaseClient';
 
-const VAPID_PUBLIC_KEY = (import.meta.env.VITE_VAPID_PUBLIC_KEY || '').trim();
+const VAPID_PUBLIC_KEY = (
+  import.meta.env.VITE_VAPID_PUBLIC_KEY ||
+  'BHyZ18HDoxsajjIUpx0WbAmTa8SOJ4nMmA6QCkUsTtsylRm3DkZQNh21gXH5JkV9C1s6H03cRldt7oSoMzQqeoM'
+).trim();
 // Përdoruesi që e aktivizoi njoftimet në këtë shfletues (që pas kyçjes të rilidhet vetëm ai)
 const OWNER_KEY = 'kalkulimi-push-owner';
 

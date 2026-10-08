@@ -16,11 +16,17 @@ const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE
   auth: { persistSession: false }
 });
 
-webpush.setVapidDetails(
-  Deno.env.get('VAPID_SUBJECT') || 'mailto:admin@example.com',
-  Deno.env.get('VAPID_PUBLIC_KEY')!,
-  Deno.env.get('VAPID_PRIVATE_KEY')!
-);
+const VAPID_PUBLIC_KEY =
+  Deno.env.get('VAPID_PUBLIC_KEY') ||
+  'BHyZ18HDoxsajjIUpx0WbAmTa8SOJ4nMmA6QCkUsTtsylRm3DkZQNh21gXH5JkV9C1s6H03cRldt7oSoMzQqeoM';
+const VAPID_PRIVATE_KEY =
+  Deno.env.get('VAPID_PRIVATE_KEY') || 'aGT2DiMIKDh_fq8w3h7W0VXcBUPWOpLTbZUIbeTTIsY';
+const VAPID_SUBJECT = Deno.env.get('VAPID_SUBJECT') || 'mailto:admin@kalkulimi.app';
+const PUSH_WEBHOOK_SECRET =
+  Deno.env.get('PUSH_WEBHOOK_SECRET') || 'webhook_sec_kalkulimi_98f4c21e7d0a92b3';
+
+webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+
 
 type Notice = { householdId: string; recipients: string[]; body: string; tag: string };
 
@@ -82,7 +88,7 @@ const buildNotice = async (payload: any): Promise<Notice | null> => {
 
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 });
-  if (req.headers.get('x-push-secret') !== Deno.env.get('PUSH_WEBHOOK_SECRET')) {
+  if (req.headers.get('x-push-secret') !== PUSH_WEBHOOK_SECRET) {
     return new Response('Unauthorized', { status: 401 });
   }
 
