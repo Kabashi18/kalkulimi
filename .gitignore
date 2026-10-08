@@ -27,3 +27,7 @@ Thumbs.db
 
 # Expo
 mobile/.expo/
+
+# Supabase CLI
+supabase/.temp/
+

@@ -8,6 +8,7 @@ import ForgotPasswordScreen from './screens/ForgotPasswordScreen';
 import ResetPasswordScreen from './screens/ResetPasswordScreen';
 import { authApi } from './api/authApi';
 import { householdApi } from './api/householdApi';
+import { pushApi } from './api/pushApi';
 import { isSupabaseConfigured, supabaseConfigError } from './lib/supabaseClient';
 
 const FullScreenSpinner = ({ text }) => (
@@ -74,6 +75,8 @@ export default function App() {
     if (userId) {
       setProfile(undefined);
       loadProfile();
+      // Nëse ky përdorues i ka aktivizuar njoftimet më parë në këtë pajisje, rilidh subskriptimin
+      pushApi.sync(userId).catch(() => {});
     } else {
       setProfile(undefined);
     }
@@ -85,6 +88,8 @@ export default function App() {
   };
 
   const handleLogout = async () => {
+    // Pajisja nuk merr më njoftime për llogarinë që del (duhet sesioni, ndaj para daljes)
+    await pushApi.detachDevice().catch(() => {});
     await authApi.logout();
     setExpenseToEdit(null);
     setRegistrationNotice(null);

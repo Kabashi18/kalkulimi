@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { Plus, AlertTriangle, Receipt, CheckCircle, LogOut, Copy, Check, Users, Share2, DoorOpen, UserPlus, Moon, Home, ChevronRight } from 'lucide-react';
+import { Plus, AlertTriangle, Receipt, CheckCircle, LogOut, Copy, Check, Users, Share2, DoorOpen, UserPlus, Moon, Bell, Home, ChevronRight } from 'lucide-react';
 import SummaryCard from '../components/SummaryCard';
 import BalanceSettlement from '../components/BalanceSettlement';
 import ExpenseItem from '../components/ExpenseItem';
@@ -10,6 +10,7 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import { expenseApi } from '../api/expenseApi';
 import { householdApi } from '../api/householdApi';
 import { isDarkTheme, setDarkTheme } from '../lib/theme';
+import { pushApi } from '../api/pushApi';
 import {
   isPersonalExpense,
   isInMonth,
@@ -54,6 +55,8 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
   };
   const [menuOpen, setMenuOpen] = useState(false);
   const [darkTheme, setDarkThemeState] = useState(isDarkTheme);
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [pushBusy, setPushBusy] = useState(false);
   const [copied, setCopied] = useState(false);
   const toastTimer = useRef(null);
   const menuRef = useRef(null);
@@ -136,6 +139,30 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
       clearTimeout(toastTimer.current);
     };
   }, [household.id, loadData]);
+
+  useEffect(() => {
+    pushApi.isEnabled(currentUserId).then(setPushEnabled).catch(() => setPushEnabled(false));
+  }, [currentUserId]);
+
+  const handleTogglePush = async () => {
+    if (pushBusy) return;
+    setPushBusy(true);
+    try {
+      if (pushEnabled) {
+        await pushApi.disable();
+        setPushEnabled(false);
+        showToast('Njoftimet push u çaktivizuan në këtë pajisje.');
+      } else {
+        await pushApi.enable(currentUserId);
+        setPushEnabled(true);
+        showToast('Njoftimet push u aktivizuan!');
+      }
+    } catch (err) {
+      showToast(err?.message || 'Dështoi ndryshimi i njoftimeve.', 'error');
+    } finally {
+      setPushBusy(false);
+    }
+  };
 
   // Mbyll menunë e profilit kur klikohet jashtë
   useEffect(() => {
@@ -335,6 +362,24 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
                     <span className={`block w-4 h-4 rounded-full bg-white shadow transition-transform ${darkTheme ? 'translate-x-4' : ''}`} />
                   </span>
                 </button>
+                {/* Njoftimet push për shpenzimet e përbashkëta, pagesat dhe anëtarët e rinj */}
+                {pushApi.isConfigured() && (
+                  <button
+                    role="switch"
+                    aria-checked={pushEnabled}
+                    disabled={pushBusy}
+                    onClick={handleTogglePush}
+                    className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center justify-between cursor-pointer disabled:opacity-60"
+                  >
+                    <span className="flex items-center space-x-2.5">
+                      <Bell className="w-4 h-4 text-slate-500" />
+                      <span>Njoftimet push</span>
+                    </span>
+                    <span className={`w-9 h-5 rounded-full p-0.5 transition-colors ${pushEnabled ? 'bg-indigo-600' : 'bg-slate-300'}`}>
+                      <span className={`block w-4 h-4 rounded-full bg-white shadow transition-transform ${pushEnabled ? 'translate-x-4' : ''}`} />
+                    </span>
+                  </button>
+                )}
                 <button
                   onClick={() => {
                     setMenuOpen(false);

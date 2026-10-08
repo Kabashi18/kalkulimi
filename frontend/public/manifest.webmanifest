@@ -1,0 +1,10 @@
+{
+  "name": "Kalkulimi - Shpenzimet e Banesës",
+  "short_name": "Kalkulimi",
+  "lang": "sq",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f1f5f9",
+  "theme_color": "#0f766e"
+}

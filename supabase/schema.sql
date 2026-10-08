@@ -518,3 +518,134 @@ begin
   end loop;
 end;
 $$;
+
+-- ------------------------------------------------------------------------------
+-- 9. NJOFTIMET PUSH (Web Push)
+-- ------------------------------------------------------------------------------
+-- Çdo pajisje/shfletues ku përdoruesi ka aktivizuar njoftimet. `endpoint` është unik për pajisje.
+create table if not exists public.user_push_subscriptions (
+  id          bigint generated always as identity primary key,
+  user_id     uuid not null references public.profiles (id) on delete cascade,
+  endpoint    text not null unique,
+  p256dh      text not null,
+  auth        text not null,
+  user_agent  text,
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+create index if not exists push_subscriptions_user_idx on public.user_push_subscriptions (user_id);
+
+alter table public.user_push_subscriptions enable row level security;
+
+-- Përdoruesi sheh vetëm pajisjet e veta; shkrimi bëhet përmes RPC-ve më poshtë
+drop policy if exists "push_subscriptions_select_own" on public.user_push_subscriptions;
+create policy "push_subscriptions_select_own" on public.user_push_subscriptions
+  for select to authenticated
+  using (user_id = auth.uid());
+
+-- Ruan (ose rilidh me përdoruesin aktual) subskriptimin e kësaj pajisjeje.
+-- Kush e njeh `endpoint`-in e ka vetë pajisjen, ndaj lejohet ta marrë nga një llogari tjetër në të njëjtin shfletues.
+create or replace function public.save_push_subscription(p_endpoint text, p_p256dh text, p_auth text, p_user_agent text default null)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is null then
+    raise exception 'Nuk jeni të kyçur.';
+  end if;
+  if coalesce(p_endpoint, '') !~ '^https://' or coalesce(p_p256dh, '') = '' or coalesce(p_auth, '') = '' then
+    raise exception 'Subskriptim i pavlefshëm për njoftimet push.';
+  end if;
+
+  insert into public.user_push_subscriptions (user_id, endpoint, p256dh, auth, user_agent)
+  values (auth.uid(), p_endpoint, p_p256dh, p_auth, left(p_user_agent, 300))
+  on conflict (endpoint) do update
+    set user_id = excluded.user_id,
+        p256dh = excluded.p256dh,
+        auth = excluded.auth,
+        user_agent = excluded.user_agent,
+        updated_at = now();
+end;
+$$;
+
+create or replace function public.delete_push_subscription(p_endpoint text)
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  delete from public.user_push_subscriptions where endpoint = p_endpoint and user_id = auth.uid();
+$$;
+
+revoke execute on function public.save_push_subscription(text, text, text, text) from public, anon;
+revoke execute on function public.delete_push_subscription(text) from public, anon;
+grant execute on function public.save_push_subscription(text, text, text, text) to authenticated;
+grant execute on function public.delete_push_subscription(text) to authenticated;
+
+-- Dërgimi: triggerët i çojnë ngjarjet te Edge Function `send-push` (supabase/functions/send-push).
+-- Adresa dhe sekreti lexohen nga Vault (shih supabase/README.md). Pa to, triggerët nuk bëjnë asgjë.
+create extension if not exists pg_net;
+
+create or replace function public.notify_push()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  fn_url text;
+  fn_secret text;
+begin
+  select decrypted_secret into fn_url from vault.decrypted_secrets where name = 'push_function_url';
+  select decrypted_secret into fn_secret from vault.decrypted_secrets where name = 'push_webhook_secret';
+  if fn_url is null or fn_secret is null then
+    return null;
+  end if;
+
+  -- pg_net e dërgon kërkesën asinkronisht pasi transaksioni të jetë ruajtur
+  perform net.http_post(
+    url := fn_url,
+    headers := jsonb_build_object('Content-Type', 'application/json', 'x-push-secret', fn_secret),
+    body := jsonb_build_object(
+      'type', tg_op,
+      'table', tg_table_name,
+      'record', to_jsonb(new),
+      'old_record', case when tg_op = 'UPDATE' then to_jsonb(old) end
+    )
+  );
+  return null;
+exception when others then
+  -- Njoftimet nuk duhet të pengojnë kurrë ruajtjen e shpenzimit / pagesës
+  raise warning 'notify_push: %', sqlerrm;
+  return null;
+end;
+$$;
+
+revoke execute on function public.notify_push() from public, anon, authenticated;
+
+-- Shpenzimet individuale (is_personal) nuk dërgojnë asnjë njoftim (privatësia)
+drop trigger if exists push_on_expense_insert on public.expenses;
+create trigger push_on_expense_insert
+  after insert on public.expenses
+  for each row when (not new.is_personal)
+  execute function public.notify_push();
+
+drop trigger if exists push_on_settlement_insert on public.settlements;
+create trigger push_on_settlement_insert
+  after insert on public.settlements
+  for each row execute function public.notify_push();
+
+-- Anëtar i ri: regjistrim me kod banese (insert) ose "Bashkohu" pas kyçjes (update)
+drop trigger if exists push_on_profile_join_insert on public.profiles;
+create trigger push_on_profile_join_insert
+  after insert on public.profiles
+  for each row when (new.household_id is not null)
+  execute function public.notify_push();
+
+drop trigger if exists push_on_profile_join_update on public.profiles;
+create trigger push_on_profile_join_update
+  after update of household_id on public.profiles
+  for each row when (new.household_id is not null and new.household_id is distinct from old.household_id)
+  execute function public.notify_push();
