@@ -617,13 +617,33 @@ begin
   );
   return null;
 exception when others then
-  -- Njoftimet nuk duhet të pengojnë kurrë ruajtjen e shpenzimit / pagesës
   raise warning 'notify_push: %', sqlerrm;
   return null;
 end;
 $$;
 
 revoke execute on function public.notify_push() from public, anon, authenticated;
+
+-- Funksion i sigurt vetëm për Edge Function (service_role) për të lexuar sekretet nga Vault
+create or replace function public.get_push_secrets()
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  res jsonb;
+begin
+  select jsonb_object_agg(name, decrypted_secret) into res
+  from vault.decrypted_secrets
+  where name in ('push_webhook_secret', 'vapid_public_key', 'vapid_private_key', 'vapid_subject');
+  return coalesce(res, '{}'::jsonb);
+end;
+$$;
+
+revoke execute on function public.get_push_secrets() from public, anon, authenticated;
+grant execute on function public.get_push_secrets() to service_role;
+
 
 -- Shpenzimet individuale (is_personal) nuk dërgojnë asnjë njoftim (privatësia)
 drop trigger if exists push_on_expense_insert on public.expenses;

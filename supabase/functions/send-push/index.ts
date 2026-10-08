@@ -16,15 +16,55 @@ const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE
   auth: { persistSession: false }
 });
 
-// Sekretet vijnë VETËM nga Supabase (Edge Functions -> Secrets) - kurrë në kod: repo është publik
-const VAPID_PUBLIC_KEY = Deno.env.get('VAPID_PUBLIC_KEY');
-const VAPID_PRIVATE_KEY = Deno.env.get('VAPID_PRIVATE_KEY');
-const VAPID_SUBJECT = Deno.env.get('VAPID_SUBJECT') || 'mailto:admin@kalkulimi.app';
-const PUSH_WEBHOOK_SECRET = Deno.env.get('PUSH_WEBHOOK_SECRET');
+type PushSecrets = {
+  vapid_public_key: string;
+  vapid_private_key: string;
+  vapid_subject: string;
+  push_webhook_secret: string;
+};
 
-if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
-  webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
-}
+let secretsCache: PushSecrets | null = null;
+
+const getSecrets = async (): Promise<PushSecrets | null> => {
+  if (secretsCache) return secretsCache;
+
+  const envPub = Deno.env.get('VAPID_PUBLIC_KEY');
+  const envPriv = Deno.env.get('VAPID_PRIVATE_KEY');
+  const envSec = Deno.env.get('PUSH_WEBHOOK_SECRET');
+  const envSub = Deno.env.get('VAPID_SUBJECT') || 'mailto:admin@kalkulimi.app';
+
+  if (envPub && envPriv && envSec) {
+    secretsCache = {
+      vapid_public_key: envPub,
+      vapid_private_key: envPriv,
+      vapid_subject: envSub,
+      push_webhook_secret: envSec
+    };
+    webpush.setVapidDetails(envSub, envPub, envPriv);
+    return secretsCache;
+  }
+
+  // Lexohen nga Supabase Vault përmes funksionit të sigurt RPC të databazës
+  const { data, error } = await admin.rpc('get_push_secrets');
+  if (error || !data) {
+    console.error('get_push_secrets error:', error);
+    return null;
+  }
+
+  if (data.vapid_public_key && data.vapid_private_key && data.push_webhook_secret) {
+    secretsCache = {
+      vapid_public_key: data.vapid_public_key,
+      vapid_private_key: data.vapid_private_key,
+      vapid_subject: data.vapid_subject || envSub,
+      push_webhook_secret: data.push_webhook_secret
+    };
+    webpush.setVapidDetails(secretsCache.vapid_subject, secretsCache.vapid_public_key, secretsCache.vapid_private_key);
+    return secretsCache;
+  }
+
+  return null;
+};
+
 
 
 
@@ -88,12 +128,16 @@ const buildNotice = async (payload: any): Promise<Notice | null> => {
 
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 });
-  if (!PUSH_WEBHOOK_SECRET || req.headers.get('x-push-secret') !== PUSH_WEBHOOK_SECRET) {
+
+  const secrets = await getSecrets();
+  if (!secrets) {
+    return Response.json({ error: 'Mungojnë sekretet e konfigurimit të njoftimeve në Vault / Environment.' }, { status: 500 });
+  }
+
+  if (req.headers.get('x-push-secret') !== secrets.push_webhook_secret) {
     return new Response('Unauthorized', { status: 401 });
   }
-  if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
-    return Response.json({ error: 'Mungojnë sekretet VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY.' }, { status: 500 });
-  }
+
 
   const notice = await buildNotice(await req.json().catch(() => null));
   if (!notice || notice.recipients.length === 0) return Response.json({ sent: 0 });
