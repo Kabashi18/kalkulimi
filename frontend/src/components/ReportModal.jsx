@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Download, Printer, FileText, CheckCircle2, ArrowRight, Users, Euro } from 'lucide-react';
 import { expenseApi } from '../api/expenseApi';
 import { generatePdfReport } from '../utils/generatePdfReport';
+import { formatEuro } from '../utils/balances';
 
 export default function ReportModal({ isOpen, onClose, household }) {
   const [loading, setLoading] = useState(true);
@@ -80,16 +81,16 @@ export default function ReportModal({ isOpen, onClose, household }) {
               {/* 1. Statistikat Kryesore */}
               <div className="grid grid-cols-3 gap-2.5">
                 <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-3 text-center">
-                  <span className="text-[10px] font-bold text-indigo-600 uppercase block mb-0.5">
+                  <span className="text-xs font-bold text-indigo-600 uppercase block mb-0.5">
                     Totali Faturave
                   </span>
                   <span className="text-base font-black text-indigo-900">
-                    {report.totalAmount.toFixed(2)} €
+                    {formatEuro(report.totalAmount)}
                   </span>
                 </div>
 
                 <div className="bg-purple-50 border border-purple-100 rounded-2xl p-3 text-center">
-                  <span className="text-[10px] font-bold text-purple-600 uppercase block mb-0.5">
+                  <span className="text-xs font-bold text-purple-600 uppercase block mb-0.5">
                     Anëtarë
                   </span>
                   <span className="text-base font-black text-purple-900">
@@ -98,11 +99,11 @@ export default function ReportModal({ isOpen, onClose, household }) {
                 </div>
 
                 <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-3 text-center">
-                  <span className="text-[10px] font-bold text-emerald-600 uppercase block mb-0.5">
+                  <span className="text-xs font-bold text-emerald-600 uppercase block mb-0.5">
                     Pjesa për person
                   </span>
                   <span className="text-base font-black text-emerald-900">
-                    {report.perPersonAverage.toFixed(2)} €
+                    {formatEuro(report.perPersonAverage)}
                   </span>
                 </div>
               </div>
@@ -131,7 +132,7 @@ export default function ReportModal({ isOpen, onClose, household }) {
                           <span className="font-bold text-emerald-600">{s.to}</span>
                         </div>
                         <span className="font-black text-slate-900 bg-slate-100 px-2 py-1 rounded-lg">
-                          {s.amount.toFixed(2)} €
+                          {formatEuro(s.amount)}
                         </span>
                       </div>
                     ))}
@@ -158,8 +159,8 @@ export default function ReportModal({ isOpen, onClose, household }) {
                       {report.members.map((m) => (
                         <tr key={m.userId} className="hover:bg-slate-50">
                           <td className="py-2.5 px-3 font-semibold text-slate-800">{m.name}</td>
-                          <td className="py-2.5 px-2 text-right text-slate-600">{m.paid.toFixed(2)} €</td>
-                          <td className="py-2.5 px-2 text-right text-slate-600">{m.owed.toFixed(2)} €</td>
+                          <td className="py-2.5 px-2 text-right text-slate-600">{formatEuro(m.paid)}</td>
+                          <td className="py-2.5 px-2 text-right text-slate-600">{formatEuro(m.owed)}</td>
                           <td
                             className={`py-2.5 px-3 text-right font-bold ${
                               m.netBalance > 0
@@ -169,7 +170,7 @@ export default function ReportModal({ isOpen, onClose, household }) {
                                 : 'text-slate-500'
                             }`}
                           >
-                            {m.netBalance > 0 ? `+${m.netBalance.toFixed(2)} €` : `${m.netBalance.toFixed(2)} €`}
+                            {formatEuro(m.netBalance, { sign: true })}
                           </td>
                         </tr>
                       ))}

@@ -213,8 +213,8 @@ export const computeSplitAmounts = (total, memberIds = [], mode = 'equal', value
     if (cents.some((c) => c < 0)) return result(cents, 'Shumat nuk mund të jenë negative.');
     const sum = cents.reduce((a, b) => a + b, 0);
     if (sum !== totalCents) {
-      const diff = toEuro(Math.abs(totalCents - sum)).toFixed(2);
-      return result(cents, sum < totalCents ? `Mbeten edhe ${diff} € për t'u ndarë.` : `Keni ndarë ${diff} € më shumë se totali.`);
+      const diff = formatEuro(Math.abs(totalCents - sum) / 100);
+      return result(cents, sum < totalCents ? `Mbeten edhe ${diff} për t'u ndarë.` : `Keni ndarë ${diff} më shumë se totali.`);
     }
     return result(cents);
   }
@@ -275,4 +275,46 @@ export const addMonths = (date, n) => new Date(date.getFullYear(), date.getMonth
 export const isInMonth = (expense, monthDate) => {
   const d = expenseDateOf(expense);
   return !!d && d.getFullYear() === monthDate.getFullYear() && d.getMonth() === monthDate.getMonth();
+};
+
+/**
+ * Shuma në formatin shqip: 1234.5 -> "1.234,50 €" (me hapësirë që nuk ndahet para €).
+ * `sign: true` shton "+" për pozitive (p.sh. bilanci neto); negativet marrin gjithmonë "−".
+ */
+export const formatEuro = (value, { sign = false } = {}) => {
+  const n = Number(value) || 0;
+  const cents = Math.round(Math.abs(n) * 100);
+  const whole = String(Math.floor(cents / 100)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  const decimals = String(cents % 100).padStart(2, '0');
+  const prefix = cents === 0 ? '' : n < 0 ? '−' : sign ? '+' : '';
+  // \u00a0 = hapësirë që nuk ndahet: "€" nuk kalon kurrë në rresht tjetër
+  return `${prefix}${whole},${decimals}\u00a0€`;
+};
+
+/** Ditët e listës: "Sot", "Dje" ose "05 Tet 2026" */
+export const dayLabel = (date, now = new Date()) => {
+  if (!date) return '';
+  const strip = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const diff = Math.round((strip(now) - strip(date)) / 86400000);
+  if (diff === 0) return 'Sot';
+  if (diff === 1) return 'Dje';
+  return formatDateSq(date, { year: date.getFullYear() !== now.getFullYear() });
+};
+
+/**
+ * Efekti i një shpenzimi mbi përdoruesin (si "you lent / you borrowed" te Splitwise):
+ *   { type: 'lent', amount }      -> pagova unë; të tjerët më kanë borxh `amount`
+ *   { type: 'borrowed', amount }  -> pagoi dikush tjetër; unë i kam borxh `amount`
+ *   { type: 'personal', amount }  -> shpenzim individual
+ *   { type: 'none' }              -> nuk më përfshin
+ */
+export const expenseEffectFor = (userId, expense) => {
+  if (isPersonalExpense(expense)) return { type: 'personal', amount: Number(expense.total_amount) || 0 };
+  const splits = expense.splits || [];
+  const mine = splits.find((s) => s.user_id === userId);
+  if (expense.paid_by === userId) {
+    const othersCents = splits.filter((s) => s.user_id !== userId).reduce((a, s) => a + toCents(s.amount_owed), 0);
+    return othersCents > 0 ? { type: 'lent', amount: toEuro(othersCents) } : { type: 'none' };
+  }
+  return mine && toCents(mine.amount_owed) > 0 ? { type: 'borrowed', amount: Number(mine.amount_owed) } : { type: 'none' };
 };

@@ -93,7 +93,7 @@ export default function HouseholdSetupScreen({ userName, error = null, onDone, o
                   className={`${inputClass} tracking-widest font-bold`}
                 />
               </div>
-              <p className="text-[11px] text-slate-400 mt-1.5">
+              <p className="text-xs text-slate-400 mt-1.5">
                 Kërkojani kodin shokut që e ka krijuar banesën (e gjen te Dashboard-i i tij).
               </p>
             </div>
@@ -113,7 +113,7 @@ export default function HouseholdSetupScreen({ userName, error = null, onDone, o
                   className={inputClass}
                 />
               </div>
-              <p className="text-[11px] text-slate-400 mt-1.5">
+              <p className="text-xs text-slate-400 mt-1.5">
                 Do të marrësh një kod unik (p.sh. BANESA-4821) për t'ua dhënë shokëve.
               </p>
             </div>

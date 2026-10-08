@@ -87,7 +87,7 @@ export default function HouseholdSetupScreen({ userName, error = null, onDone, o
             className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-800"
           />
         )}
-        <Text className="text-[11px] text-slate-400 mt-1.5">
+        <Text className="text-xs text-slate-400 mt-1.5">
           {mode === 'join'
             ? 'Kërkojani kodin shokut që e ka krijuar banesën.'
             : "Do të marrësh një kod unik (p.sh. BANESA-4821) për t'ua dhënë shokëve."}

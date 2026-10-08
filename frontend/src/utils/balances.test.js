@@ -11,7 +11,10 @@ import {
   isInMonth,
   monthLabel,
   formatDateSq,
-  addMonths
+  addMonths,
+  formatEuro,
+  dayLabel,
+  expenseEffectFor
 } from './balances';
 
 const members = [
@@ -106,8 +109,8 @@ describe('computeSplitAmounts', () => {
 
   it('exact: pranon shumat kur japin totalin dhe tregon sa mbeten', () => {
     expect(computeSplitAmounts(300, ids, 'exact', { A: 150, B: 100, C: 50 }).error).toBeNull();
-    expect(computeSplitAmounts(300, ids, 'exact', { A: 150, B: 100, C: 30 }).error).toMatch(/Mbeten edhe 20\.00 €/);
-    expect(computeSplitAmounts(300, ids, 'exact', { A: 155.5, B: 100, C: 50 }).error).toMatch(/5\.50 € më shumë/);
+    expect(computeSplitAmounts(300, ids, 'exact', { A: 150, B: 100, C: 30 }).error).toMatch(/Mbeten edhe 20,00\u00a0€/);
+    expect(computeSplitAmounts(300, ids, 'exact', { A: 155.5, B: 100, C: 50 }).error).toMatch(/5,50\u00a0€ më shumë/);
     expect(computeSplitAmounts(0.3, ['A', 'B'], 'exact', { A: '0.1', B: '0.2' }).error).toBeNull();
     expect(computeSplitAmounts(10, ['A', 'B'], 'exact', { A: 15, B: -5 }).error).toMatch(/negative/);
   });
@@ -172,5 +175,32 @@ describe('datat dhe muajt', () => {
       { category: 'Rrymë', total: 30, percentage: 30 },
       { category: 'Banesë', total: 70, percentage: 70 }
     ]);
+  });
+});
+
+describe('formatEuro, dayLabel, expenseEffectFor', () => {
+  it('formatEuro përdor pikë për mijëshet dhe presje për decimalet', () => {
+    expect(formatEuro(1234.5)).toBe('1.234,50\u00a0€');
+    expect(formatEuro(0)).toBe('0,00\u00a0€');
+    expect(formatEuro(-42.1)).toBe('−42,10\u00a0€');
+    expect(formatEuro(42.1, { sign: true })).toBe('+42,10\u00a0€');
+    expect(formatEuro(1000000)).toBe('1.000.000,00\u00a0€');
+    expect(formatEuro(0.004, { sign: true })).toBe('0,00\u00a0€');
+  });
+
+  it('dayLabel: Sot / Dje / data', () => {
+    const now = new Date(2026, 9, 8, 15);
+    expect(dayLabel(new Date(2026, 9, 8, 1), now)).toBe('Sot');
+    expect(dayLabel(new Date(2026, 9, 7), now)).toBe('Dje');
+    expect(dayLabel(new Date(2026, 9, 5), now)).toBe('05 Tet');
+    expect(dayLabel(new Date(2025, 11, 31), now)).toBe('31 Dhj 2025');
+  });
+
+  it('expenseEffectFor: dhashë hua / mora hua / personale', () => {
+    const e = { paid_by: 'A', total_amount: 90, is_personal: false, splits: [{ user_id: 'A', amount_owed: 30 }, { user_id: 'B', amount_owed: 30 }, { user_id: 'C', amount_owed: 30 }] };
+    expect(expenseEffectFor('A', e)).toEqual({ type: 'lent', amount: 60 });
+    expect(expenseEffectFor('B', e)).toEqual({ type: 'borrowed', amount: 30 });
+    expect(expenseEffectFor('X', e)).toEqual({ type: 'none' });
+    expect(expenseEffectFor('A', { total_amount: 5, is_personal: true })).toEqual({ type: 'personal', amount: 5 });
   });
 });

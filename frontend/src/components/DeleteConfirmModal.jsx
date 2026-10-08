@@ -1,5 +1,6 @@
 import React from 'react';
 import { AlertTriangle, Trash2, X } from 'lucide-react';
+import { formatEuro } from '../utils/balances';
 
 export default function DeleteConfirmModal({ isOpen, onClose, onConfirm, expense, loading }) {
   if (!isOpen || !expense) return null;
@@ -17,7 +18,7 @@ export default function DeleteConfirmModal({ isOpen, onClose, onConfirm, expense
         </h3>
         
         <p className="text-xs text-slate-500 text-center mb-4 leading-relaxed">
-          Po fshini shpenzimin <strong className="text-slate-800 font-semibold">"{expense.title}"</strong> me vlerë prej <strong className="text-slate-900 font-bold">{Number(expense.total_amount).toFixed(2)} €</strong>. Ky veprim nuk mund të kthehet prapa.
+          Po fshini shpenzimin <strong className="text-slate-800 font-semibold">"{expense.title}"</strong> me vlerë prej <strong className="text-slate-900 font-bold">{formatEuro(expense.total_amount)}</strong>. Ky veprim nuk mund të kthehet prapa.
         </p>
 
         <div className="flex space-x-2">

@@ -1,31 +1,37 @@
 import React from 'react';
-import { Wallet, Calendar } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { formatEuro, monthLabel } from '../utils/balances';
 
-// Kartela: Totali i shpenzuar nga xhepi këtë muaj (personale + të përbashkëta).
-// Barazimi i borxheve shfaqet te BalanceSettlement.
-export default function SummaryCard({ monthlyTotal = 0, monthName = '', isCurrentMonth = true }) {
+// Kartela e muajit: zgjedhësi ◀ muaji ▶ + sa ke paguar nga xhepi (personale + të përbashkëta).
+// Borxhet (gjithmonë totale) shfaqen te BalanceSettlement.
+export default function SummaryCard({ month, monthlyTotal = 0, isCurrentMonth = true, onPrev, onNext, onToday }) {
+  const navButton =
+    'w-9 h-9 rounded-full flex items-center justify-center text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer disabled:cursor-default';
+
   return (
-    <div className="mb-4">
-      <div className="bg-gradient-to-br from-indigo-600 to-indigo-700 rounded-3xl p-5 text-white shadow-lg shadow-indigo-500/20">
-        <div className="flex justify-between items-start">
-          <div>
-            <p className="text-indigo-200 text-xs font-semibold uppercase tracking-wider mb-1">
-              {isCurrentMonth ? 'Totali i Shpenzuar këtë Muaj' : `Shpenzuar në ${monthName}`}
-            </p>
-            <h2 className="text-3xl font-extrabold tracking-tight">
-              {Number(monthlyTotal).toFixed(2)} €
-            </h2>
-          </div>
-          <div className="w-12 h-12 bg-white/10 backdrop-blur-sm rounded-2xl flex items-center justify-center border border-white/10">
-            <Wallet className="w-6 h-6 text-white" />
-          </div>
+    <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-4 mb-4">
+      <div className="flex items-center justify-between">
+        <button onClick={onPrev} className={navButton} aria-label="Muaji i kaluar">
+          <ChevronLeft className="w-5 h-5" />
+        </button>
+        <div className="text-center">
+          <p className="text-sm font-bold text-slate-900">{monthLabel(month)}</p>
+          {!isCurrentMonth && (
+            <button onClick={onToday} className="text-xs font-semibold text-indigo-600 hover:underline cursor-pointer">
+              Kthehu te muaji aktual
+            </button>
+          )}
         </div>
-
-        <div className="flex items-center mt-3 pt-3 border-t border-white/10 text-xs text-indigo-100">
-          <Calendar className="w-3.5 h-3.5 mr-1.5 opacity-80" />
-          <span>{monthName || 'Muaji aktual'} (personale + të përbashkëta, nga xhepi yt)</span>
-        </div>
+        <button onClick={onNext} disabled={isCurrentMonth} className={navButton} aria-label="Muaji tjetër">
+          <ChevronRight className="w-5 h-5" />
+        </button>
       </div>
+
+      <div className="mt-3 pt-3 border-t border-slate-100 flex items-baseline justify-between">
+        <span className="text-sm text-slate-500">Paguar nga xhepi yt</span>
+        <span className="text-2xl font-extrabold text-slate-900 tracking-tight">{formatEuro(monthlyTotal)}</span>
+      </div>
+      <p className="text-xs text-slate-400 mt-0.5 text-right">personale + të përbashkëta që i pagove ti</p>
     </div>
   );
 }

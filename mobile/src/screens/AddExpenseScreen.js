@@ -3,7 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator,
 import { Ionicons } from '@expo/vector-icons';
 import { expenseApi } from '../api/expenseApi';
 import { householdApi } from '../api/householdApi';
-import { isPersonalExpense, expenseDateOf, todayISO, computeSplitAmounts, formatDateSq } from '../utils/balances';
+import { isPersonalExpense, expenseDateOf, todayISO, computeSplitAmounts, formatDateSq, formatEuro } from '../utils/balances';
 
 const CATEGORIES = [
   { id: 'Rrymë', name: 'Rrymë', icon: 'flash', color: '#d97706' },
@@ -160,7 +160,7 @@ export default function AddExpenseScreen({ currentUserId, household, expenseToEd
               </TouchableOpacity>
             ))}
           </View>
-          <Text className="text-[11px] text-slate-500 mb-4 px-1">
+          <Text className="text-xs text-slate-500 mb-4 px-1">
             {isShared ? 'Ndahet barabartë dhe llogaritet në borxhet e banesës.' : 'Vetëm për ty: nuk ndikon te borxhet e banorëve.'}
           </Text>
 
@@ -231,7 +231,7 @@ export default function AddExpenseScreen({ currentUserId, household, expenseToEd
             <View className="bg-indigo-50 border border-indigo-200 rounded-3xl p-4 mb-4">
               {members.length > 1 && (
                 <View className="pb-2 mb-3 border-b border-indigo-200">
-                  <Text className="text-[11px] font-bold text-indigo-900 uppercase tracking-wider mb-2">Kush e pagoi?</Text>
+                  <Text className="text-xs font-bold text-indigo-900 uppercase tracking-wider mb-2">Kush e pagoi?</Text>
                   <View className="flex-row flex-wrap">
                     {members.map((m) => (
                       <Chip key={m.id} active={paidBy === m.id} onPress={() => setPaidBy(m.id)} activeClass="bg-emerald-600 border-emerald-600">
@@ -241,7 +241,7 @@ export default function AddExpenseScreen({ currentUserId, household, expenseToEd
                   </View>
                 </View>
               )}
-              <Text className="text-[11px] font-bold text-indigo-900 uppercase tracking-wider mb-2">Ndahet me ({selected.length})</Text>
+              <Text className="text-xs font-bold text-indigo-900 uppercase tracking-wider mb-2">Ndahet me ({selected.length})</Text>
               <View className="flex-row flex-wrap">
                 {members.length === 0 && <ActivityIndicator color="#4f46e5" />}
                 {members.map((m) => (
@@ -251,7 +251,7 @@ export default function AddExpenseScreen({ currentUserId, household, expenseToEd
                 ))}
               </View>
               {members.length === 1 && (
-                <Text className="text-[11px] text-indigo-800 mb-2">
+                <Text className="text-xs text-indigo-800 mb-2">
                   Je i vetëm në banesë. Fto shokët me kodin {household.code}.
                 </Text>
               )}
@@ -268,7 +268,7 @@ export default function AddExpenseScreen({ currentUserId, household, expenseToEd
                       onPress={() => changeSplitMode(opt.id)}
                       className={`flex-1 py-1.5 rounded-lg items-center ${splitMode === opt.id ? 'bg-indigo-600' : ''}`}
                     >
-                      <Text className={`text-[11px] font-bold ${splitMode === opt.id ? 'text-white' : 'text-indigo-800'}`}>{opt.label}</Text>
+                      <Text className={`text-xs font-bold ${splitMode === opt.id ? 'text-white' : 'text-indigo-800'}`}>{opt.label}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -277,7 +277,7 @@ export default function AddExpenseScreen({ currentUserId, household, expenseToEd
               {splitMode === 'equal' || selected.length <= 1 ? (
                 <View className="bg-white border border-indigo-200 rounded-2xl p-3 flex-row justify-between items-center mt-1">
                   <Text className="text-xs font-semibold text-indigo-900">Pjesa për person:</Text>
-                  <Text className="text-base font-black text-indigo-700">{perPerson.toFixed(2)} €</Text>
+                  <Text className="text-base font-black text-indigo-700">{formatEuro(perPerson)}</Text>
                 </View>
               ) : (
                 <View className="bg-white border border-indigo-200 rounded-2xl p-3 mt-1">
@@ -298,13 +298,13 @@ export default function AddExpenseScreen({ currentUserId, household, expenseToEd
                           <Text className="text-xs font-bold text-slate-400 ml-1">{splitMode === 'percent' ? '%' : '€'}</Text>
                         </View>
                         {splitMode === 'percent' && (
-                          <Text className="w-16 text-right text-[11px] font-semibold text-indigo-700">{split.amounts[i]?.toFixed(2)} €</Text>
+                          <Text className="w-20 text-right text-xs font-semibold text-indigo-700">{formatEuro(split.amounts[i] || 0)}</Text>
                         )}
                       </View>
                     );
                   })}
-                  <Text className={`text-[11px] font-bold pt-2 border-t border-slate-100 ${split.error ? 'text-rose-600' : 'text-emerald-600'}`}>
-                    {split.error || `✓ Gjithçka e ndarë: ${(split.assignedCents / 100).toFixed(2)} €`}
+                  <Text className={`text-xs font-bold pt-2 border-t border-slate-100 ${split.error ? 'text-rose-600' : 'text-emerald-600'}`}>
+                    {split.error || `✓ Gjithçka e ndarë: ${formatEuro(split.assignedCents / 100)}`}
                   </Text>
                 </View>
               )}

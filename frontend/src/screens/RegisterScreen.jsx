@@ -180,7 +180,7 @@ export default function RegisterScreen({ onRegisterSuccess, onNavigateToLogin })
                 className="w-full bg-slate-50/60 border border-slate-200 focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 rounded-xl pl-10 pr-4 py-3 text-sm text-slate-800 placeholder-slate-400 outline-none transition-all duration-200 tracking-wider"
               />
             </div>
-            <p className="text-[11px] text-slate-400 mt-1.5">
+            <p className="text-xs text-slate-400 mt-1.5">
               Nëse një shok ju ka dhënë kodin, do të bashkoheni direkt me banesën e tij.
             </p>
           </div>

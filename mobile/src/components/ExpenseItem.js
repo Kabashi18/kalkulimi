@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { isPersonalExpense, expenseDateOf, formatDateSq } from '../utils/balances';
+import { expenseEffectFor, formatEuro } from '../utils/balances';
 
 const getCategoryDetails = (category = '') => {
   const cat = category.toLowerCase();
@@ -11,56 +11,59 @@ const getCategoryDetails = (category = '') => {
   if (cat.includes('internet') || cat.includes('tv')) return { icon: 'wifi', color: '#0284c7', bg: 'bg-sky-50' };
   if (cat.includes('uj')) return { icon: 'water', color: '#2563eb', bg: 'bg-blue-50' };
   if (cat.includes('pastrim')) return { icon: 'sparkles', color: '#db2777', bg: 'bg-pink-50' };
-  return { icon: 'receipt-outline', color: '#475569', bg: 'bg-slate-50' };
+  return { icon: 'receipt-outline', color: '#475569', bg: 'bg-slate-100' };
+};
+
+// Në të djathtë shfaqet efekti mbi TY (si te Splitwise), jo vetëm totali
+const EFFECT = {
+  lent: { label: 'ti dhe hua', label2: 'text-emerald-600', amount: 'text-emerald-600' },
+  borrowed: { label: 'ti more hua', label2: 'text-rose-600', amount: 'text-rose-600' },
+  personal: { label: 'personale', label2: 'text-slate-500', amount: 'text-slate-700' },
+  none: { label: 'nuk të përfshin', label2: 'text-slate-400', amount: 'text-slate-400' }
 };
 
 // Shtypja e gjatë (ose ikona ⋮) hap opsionet Ndrysho / Fshij për paguesin ose regjistruesin
-export default function ExpenseItem({ expense, onOptions }) {
+export default function ExpenseItem({ expense, currentUserId, onOptions }) {
   const { icon, color, bg } = getCategoryDetails(expense.category);
-  const isShared = !isPersonalExpense(expense);
   const isPayer = expense.is_payer === 1;
-  const date = expenseDateOf(expense);
-  const formattedDate = formatDateSq(date);
+  const effect = expenseEffectFor(currentUserId, expense);
+  const style = EFFECT[effect.type];
+  const isPersonal = effect.type === 'personal';
+  const customSplit = !isPersonal && expense.split_mode && expense.split_mode !== 'equal';
+  const payer = isPayer ? 'Ti pagove' : `${(expense.paid_by_name || 'Shoku').split(' ')[0]} pagoi`;
 
   return (
     <TouchableOpacity
       activeOpacity={expense.can_edit ? 0.7 : 1}
       onLongPress={expense.can_edit ? () => onOptions?.(expense) : undefined}
-      className="flex-row items-center p-3.5 mb-2.5 bg-white rounded-2xl border border-slate-100"
+      className="flex-row items-center px-3.5 py-3"
     >
-      <View className={`w-11 h-11 rounded-2xl items-center justify-center mr-3 ${bg}`}>
+      <View className={`w-10 h-10 rounded-xl items-center justify-center mr-3 ${bg}`}>
         <Ionicons name={icon} size={20} color={color} />
       </View>
 
       <View className="flex-1 mr-2">
-        <Text numberOfLines={1} className="text-sm font-semibold text-slate-800">{expense.title}</Text>
-        <View className="flex-row items-center mt-1">
-          <Text className="text-[10px] text-slate-400 mr-2">{formattedDate}</Text>
-          <View className={`px-2 py-0.5 rounded-full border ${isShared ? 'bg-indigo-50 border-indigo-200' : 'bg-slate-100 border-slate-200'}`}>
-            <Text className={`text-[9px] font-bold ${isShared ? 'text-indigo-700' : 'text-slate-600'}`}>
-              {isShared ? 'E përbashkët' : 'Personale'}
-            </Text>
-          </View>
-          {isShared && expense.split_mode && expense.split_mode !== 'equal' && (
-            <View className="px-2 py-0.5 rounded-full border bg-amber-50 border-amber-200 ml-1">
-              <Text className="text-[9px] font-bold text-amber-700">{expense.split_mode === 'percent' ? 'Me përqindje' : 'Shuma të ndryshme'}</Text>
-            </View>
-          )}
+        <Text numberOfLines={1} className="text-sm font-semibold text-slate-900">{expense.title}</Text>
+        <View className="flex-row items-center">
+          <Ionicons name={isPersonal ? 'lock-closed-outline' : 'people-outline'} size={12} color="#64748b" />
+          <Text numberOfLines={1} className="text-xs text-slate-500 ml-1 flex-1">
+            {payer} {formatEuro(expense.total_amount)}
+            {customSplit ? (expense.split_mode === 'percent' ? ' · me %' : ' · shuma të ndryshme') : ''}
+          </Text>
         </View>
       </View>
 
       <View className="items-end">
-        <Text className="text-sm font-black text-slate-900">{Number(expense.total_amount).toFixed(2)} €</Text>
-        <Text className="text-[10px] text-slate-500 mt-0.5">{isPayer ? 'Paguar nga ti' : `Nga: ${expense.paid_by_name}`}</Text>
-        {isShared && expense.my_split_amount > 0 && (
-          <Text className="text-[10px] font-bold text-indigo-600">Pjesa jote: {Number(expense.my_split_amount).toFixed(2)} €</Text>
-        )}
+        <Text className={`text-xs ${style.label2}`}>{style.label}</Text>
+        {effect.type !== 'none' && <Text className={`text-sm font-bold ${style.amount}`}>{formatEuro(effect.amount)}</Text>}
       </View>
 
-      {expense.can_edit && (
-        <TouchableOpacity onPress={() => onOptions?.(expense)} className="ml-1 p-1" hitSlop={8}>
+      {expense.can_edit ? (
+        <TouchableOpacity onPress={() => onOptions?.(expense)} className="ml-1 p-1.5" hitSlop={8} accessibilityLabel="Opsionet e shpenzimit">
           <Ionicons name="ellipsis-vertical" size={16} color="#94a3b8" />
         </TouchableOpacity>
+      ) : (
+        <View style={{ width: 30 }} />
       )}
     </TouchableOpacity>
   );
