@@ -7,6 +7,7 @@ import DashboardScreen from './src/screens/DashboardScreen';
 import AddExpenseScreen from './src/screens/AddExpenseScreen';
 import { authApi } from './src/api/authApi';
 import { householdApi } from './src/api/householdApi';
+import { pushNotifications } from './src/lib/pushNotifications';
 import { isSupabaseConfigured, supabaseConfigError } from './src/lib/supabaseClient';
 import { C, isDark, applyDark, loadDarkPreference, saveDarkPreference } from './src/lib/theme';
 
@@ -72,7 +73,11 @@ export default function App() {
 
   useEffect(() => {
     setProfile(undefined);
-    if (userId) loadProfile();
+    if (userId) {
+      loadProfile();
+      // Nëse ky përdorues i ka aktivizuar njoftimet më parë në këtë telefon, rilidh tokenin
+      pushNotifications.sync(userId).catch(() => {});
+    }
   }, [userId, loadProfile]);
 
   const goToDashboard = (refresh = false) => {
@@ -82,6 +87,8 @@ export default function App() {
   };
 
   const handleLogout = async () => {
+    // Telefoni nuk merr më njoftime për llogarinë që del (duhet sesioni, ndaj para daljes)
+    await pushNotifications.detachDevice().catch(() => {});
     await authApi.logout();
     goToDashboard();
   };

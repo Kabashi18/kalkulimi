@@ -11,6 +11,14 @@
     "ios": {
       "supportsTablet": true
     },
-    "android": {}
+    "android": {},
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "color": "#0e7490"
+        }
+      ]
+    ]
   }
 }

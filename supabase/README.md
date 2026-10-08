@@ -65,6 +65,8 @@ Rrjedha: `schema.sql` (triggerët + `pg_net`) → Edge Function [`send-push`](fu
 5. Përdoruesi i aktivizon te menuja e profilit → **Njoftimet push**. Në iPhone (iOS 16.4+) njoftimet punojnë vetëm
    kur faqja është shtuar te **Home Screen** dhe hapet prej andej.
 
+**Aplikacioni mobil** merr të njëjtat njoftime përmes Expo Push (tabela `user_expo_push_tokens`). Konfigurimi është te [`mobile/README.md`](../mobile/README.md#njoftimet-push).
+
 Për diagnostikim: **Edge Functions → send-push → Logs**, ose `select * from net._http_response order by created desc limit 10;`.
 
 ## 4. Si funksionon
@@ -83,7 +85,8 @@ Për diagnostikim: **Edge Functions → send-push → Logs**, ose `select * from
 - `profiles`: emri i përdoruesit dhe `household_id` (krijohet automatikisht pas regjistrimit)
 - `expenses` + `expense_splits`: shpenzimet dhe pjesa e secilit anëtar
 - `settlements`: pagesat e kthimit të borxhit ("Laje Borxhin")
-- `user_push_subscriptions`: pajisjet ku përdoruesi ka aktivizuar njoftimet push
+- `user_push_subscriptions`: shfletuesit ku përdoruesi ka aktivizuar njoftimet push
+- `user_expo_push_tokens`: telefonat (aplikacioni mobil) me njoftime push
 
 ### Rregullat e sigurisë (RLS)
 

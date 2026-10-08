@@ -669,3 +669,63 @@ create trigger push_on_profile_join_update
   after update of household_id on public.profiles
   for each row when (new.household_id is not null and new.household_id is distinct from old.household_id)
   execute function public.notify_push();
+
+-- ------------------------------------------------------------------------------
+-- 10. NJOFTIMET PUSH NË APLIKACIONIN MOBIL (Expo Push)
+-- ------------------------------------------------------------------------------
+-- Tokeni Expo i çdo telefoni ku përdoruesi ka aktivizuar njoftimet (ExponentPushToken[...]).
+-- Dërgimi bëhet nga e njëjta Edge Function `send-push`, me të njëjtat triggerë si për web-in.
+create table if not exists public.user_expo_push_tokens (
+  id          bigint generated always as identity primary key,
+  user_id     uuid not null references public.profiles (id) on delete cascade,
+  token       text not null unique,
+  platform    text,
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+create index if not exists expo_push_tokens_user_idx on public.user_expo_push_tokens (user_id);
+
+alter table public.user_expo_push_tokens enable row level security;
+
+drop policy if exists "expo_push_tokens_select_own" on public.user_expo_push_tokens;
+create policy "expo_push_tokens_select_own" on public.user_expo_push_tokens
+  for select to authenticated
+  using (user_id = auth.uid());
+
+-- Si te web-i: tokeni i takon telefonit, ndaj rilidhet me llogarinë që kyçet në të
+create or replace function public.save_expo_push_token(p_token text, p_platform text default null)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is null then
+    raise exception 'Nuk jeni të kyçur.';
+  end if;
+  if coalesce(p_token, '') !~ '^(Exponent|Expo)PushToken\[.+\]$' then
+    raise exception 'Token i pavlefshëm për njoftimet push.';
+  end if;
+
+  insert into public.user_expo_push_tokens (user_id, token, platform)
+  values (auth.uid(), p_token, left(p_platform, 20))
+  on conflict (token) do update
+    set user_id = excluded.user_id,
+        platform = excluded.platform,
+        updated_at = now();
+end;
+$$;
+
+create or replace function public.delete_expo_push_token(p_token text)
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  delete from public.user_expo_push_tokens where token = p_token and user_id = auth.uid();
+$$;
+
+revoke execute on function public.save_expo_push_token(text, text) from public, anon;
+revoke execute on function public.delete_expo_push_token(text) from public, anon;
+grant execute on function public.save_expo_push_token(text, text) to authenticated;
+grant execute on function public.delete_expo_push_token(text) to authenticated;

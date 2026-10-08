@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import SummaryCard from '../components/SummaryCard';
 import BalanceCard from '../components/BalanceCard';
 import ExpenseItem from '../components/ExpenseItem';
+import ProfileMenu from '../components/ProfileMenu';
 import { expenseApi } from '../api/expenseApi';
 import { householdApi } from '../api/householdApi';
 import {
@@ -17,6 +18,7 @@ import {
   computeMonthlyOutOfPocket
 } from '../utils/balances';
 import { C } from '../lib/theme';
+import { pushNotifications } from '../lib/pushNotifications';
 
 const LIST_FILTERS = [
   { id: 'all', label: 'Të gjitha' },
@@ -42,6 +44,9 @@ export default function DashboardScreen({ user, household, onNavigateToAdd, onNa
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [tab, setTabState] = useState(lastTab);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [pushBusy, setPushBusy] = useState(false);
   const setTab = (next) => {
     lastTab = next;
     setTabState(next);
@@ -130,15 +135,27 @@ export default function DashboardScreen({ user, household, onNavigateToAdd, onNa
     ]);
   };
 
-  // Menuja e profilit (dalja nuk është më buton i kuq në header)
-  const handleProfileMenu = () => {
-    Alert.alert(user?.name || 'Profili', user?.email || '', [
-      { text: 'Banesa & ftesa', onPress: () => setTab('household') },
-      // Tema e errët: opsion shtesë që përdoruesi e ndez vetë (parazgjedhja është e çelët)
-      { text: darkMode ? 'Fik temën e errët' : 'Ndiz temën e errët', onPress: () => onToggleDark?.(!darkMode) },
-      { text: 'Dil nga llogaria', style: 'destructive', onPress: onLogout },
-      { text: 'Mbyll', style: 'cancel' }
-    ]);
+  useEffect(() => {
+    pushNotifications.isEnabled(user?.id).then(setPushEnabled).catch(() => setPushEnabled(false));
+  }, [user?.id]);
+
+  // Njoftimet push për shpenzimet e përbashkëta, pagesat dhe anëtarët e rinj
+  const handleTogglePush = async () => {
+    if (pushBusy) return;
+    setPushBusy(true);
+    try {
+      if (pushEnabled) {
+        await pushNotifications.disable();
+        setPushEnabled(false);
+      } else {
+        await pushNotifications.enable(user?.id);
+        setPushEnabled(true);
+      }
+    } catch (err) {
+      Alert.alert('Njoftimet push', err?.message || 'Dështoi ndryshimi i njoftimeve.');
+    } finally {
+      setPushBusy(false);
+    }
   };
 
   const handleExpenseOptions = (expense) => {
@@ -369,7 +386,7 @@ export default function DashboardScreen({ user, household, onNavigateToAdd, onNa
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            onPress={handleProfileMenu}
+            onPress={() => setMenuOpen(true)}
             className="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900 items-center justify-center"
             accessibilityLabel="Menuja e profilit"
           >
@@ -392,6 +409,27 @@ export default function DashboardScreen({ user, household, onNavigateToAdd, onNa
           <Text className="text-white dark:text-slate-900 font-bold text-sm ml-1">Shto</Text>
         </TouchableOpacity>
       )}
+
+      {/* Menuja e profilit (dalja nuk është më buton i kuq në header) */}
+      <ProfileMenu
+        visible={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        user={user}
+        darkMode={darkMode}
+        // Tema e errët: opsion shtesë që përdoruesi e ndez vetë (parazgjedhja është e çelët)
+        onToggleDark={(enabled) => onToggleDark?.(enabled)}
+        pushEnabled={pushEnabled}
+        pushBusy={pushBusy}
+        onTogglePush={handleTogglePush}
+        onOpenHousehold={() => {
+          setMenuOpen(false);
+          setTab('household');
+        }}
+        onLogout={() => {
+          setMenuOpen(false);
+          onLogout();
+        }}
+      />
 
       {/* Shiriti i tab-eve poshtë */}
       <View className="flex-row bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800">
