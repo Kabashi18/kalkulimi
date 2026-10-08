@@ -18,14 +18,16 @@ const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE
 
 const VAPID_PUBLIC_KEY =
   Deno.env.get('VAPID_PUBLIC_KEY') ||
-  'BHyZ18HDoxsajjIUpx0WbAmTa8SOJ4nMmA6QCkUsTtsylRm3DkZQNh21gXH5JkV9C1s6H03cRldt7oSoMzQqeoM';
+  'BJ_zFMvA-lTGRDItQ8JxNseFqm2OqvCscK_ydHIaubDdEOfQpmgXrke2AP8oXgOJQcsmpES8ZBIZPpwbBW6WXso';
 const VAPID_PRIVATE_KEY =
-  Deno.env.get('VAPID_PRIVATE_KEY') || 'aGT2DiMIKDh_fq8w3h7W0VXcBUPWOpLTbZUIbeTTIsY';
+  Deno.env.get('VAPID_PRIVATE_KEY') || 'bAk9ZifGvEieo5As6iU1da96WLPnfLU3oL-y4EvRZQ4';
 const VAPID_SUBJECT = Deno.env.get('VAPID_SUBJECT') || 'mailto:admin@kalkulimi.app';
 const PUSH_WEBHOOK_SECRET =
-  Deno.env.get('PUSH_WEBHOOK_SECRET') || 'webhook_sec_kalkulimi_98f4c21e7d0a92b3';
+  Deno.env.get('PUSH_WEBHOOK_SECRET') ||
+  'bc209424a6ea8ca3fbccf2402a228070e0e182f0075c4d5ce8bb660583eff7bc';
 
 webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+
 
 
 type Notice = { householdId: string; recipients: string[]; body: string; tag: string };
@@ -88,8 +90,11 @@ const buildNotice = async (payload: any): Promise<Notice | null> => {
 
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 });
-  if (req.headers.get('x-push-secret') !== PUSH_WEBHOOK_SECRET) {
+  if (!PUSH_WEBHOOK_SECRET || req.headers.get('x-push-secret') !== PUSH_WEBHOOK_SECRET) {
     return new Response('Unauthorized', { status: 401 });
+  }
+  if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
+    return Response.json({ error: 'Mungojnë sekretet VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY.' }, { status: 500 });
   }
 
   const notice = await buildNotice(await req.json().catch(() => null));

@@ -8,7 +8,7 @@ import { supabase, toAppError } from '../lib/supabaseClient';
 
 const VAPID_PUBLIC_KEY = (
   import.meta.env.VITE_VAPID_PUBLIC_KEY ||
-  'BHyZ18HDoxsajjIUpx0WbAmTa8SOJ4nMmA6QCkUsTtsylRm3DkZQNh21gXH5JkV9C1s6H03cRldt7oSoMzQqeoM'
+  'BJ_zFMvA-lTGRDItQ8JxNseFqm2OqvCscK_ydHIaubDdEOfQpmgXrke2AP8oXgOJQcsmpES8ZBIZPpwbBW6WXso'
 ).trim();
 // Përdoruesi që e aktivizoi njoftimet në këtë shfletues (që pas kyçjes të rilidhet vetëm ai)
 const OWNER_KEY = 'kalkulimi-push-owner';
@@ -43,6 +43,15 @@ const getSubscription = async () => {
   return registration ? registration.pushManager.getSubscription() : null;
 };
 
+// Subskriptimi është krijuar me çelësin VAPID aktual? (pas ndërrimit të çelësave të vjetrat nuk funksionojnë)
+const matchesCurrentKey = (subscription) => {
+  const key = subscription?.options?.applicationServerKey;
+  if (!key) return true; // shfletuesi nuk e tregon -> e pranojmë
+  const current = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
+  const used = new Uint8Array(key);
+  return used.length === current.length && used.every((b, i) => b === current[i]);
+};
+
 const saveSubscription = async (subscription) => {
   const { endpoint, keys } = subscription.toJSON();
   const { error } = await supabase.rpc('save_push_subscription', {
@@ -61,7 +70,8 @@ export const pushApi = {
   // true kur kjo pajisje merr njoftime për përdoruesin `userId`
   isEnabled: async (userId) => {
     if (!isSupported() || Notification.permission !== 'granted') return false;
-    return Boolean(await getSubscription()) && readOwner() === userId;
+    const subscription = await getSubscription();
+    return Boolean(subscription) && matchesCurrentKey(subscription) && readOwner() === userId;
   },
 
   // "Aktivizo njoftimet push": kërkon lejen, regjistron service worker-in dhe ruan subskriptimin
@@ -78,8 +88,13 @@ export const pushApi = {
 
     await navigator.serviceWorker.register('/sw.js');
     const registration = await navigator.serviceWorker.ready;
+    let existing = await registration.pushManager.getSubscription();
+    if (existing && !matchesCurrentKey(existing)) {
+      await existing.unsubscribe();
+      existing = null;
+    }
     const subscription =
-      (await registration.pushManager.getSubscription()) ||
+      existing ||
       (await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
@@ -103,7 +118,15 @@ export const pushApi = {
   sync: async (userId) => {
     if (!isSupported() || Notification.permission !== 'granted' || readOwner() !== userId) return;
     const subscription = await getSubscription();
-    if (subscription) await saveSubscription(subscription);
+    if (!subscription) return;
+    if (matchesCurrentKey(subscription)) {
+      await saveSubscription(subscription);
+    } else {
+      // Çelës i vjetër: hiqet; përdoruesi i riaktivizon te menuja e profilit
+      await supabase.rpc('delete_push_subscription', { p_endpoint: subscription.endpoint });
+      await subscription.unsubscribe();
+      writeOwner(null);
+    }
   },
 
   // Para daljes: kjo pajisje nuk duhet të marrë më njoftime për llogarinë që po del.
