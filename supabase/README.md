@@ -69,6 +69,12 @@ Rrjedha: `schema.sql` (triggerët + `pg_net`) → Edge Function [`send-push`](fu
 
 Për diagnostikim: **Edge Functions → send-push → Logs**, ose `select * from net._http_response order by created desc limit 10;`.
 
+## Pastrimi i të dhënave testuese (para nisjes)
+
+[`reset_test_data.sql`](reset_test_data.sql) fshin **të gjitha** shpenzimet dhe pagesat, ndërsa llogaritë, banesat
+dhe fotot mbeten, dhe borxhet e të gjithëve bëhen 0.00 €. Ekzekutohet një herë, me dorë, te **SQL Editor**.
+Veprimi është i pakthyeshëm.
+
 ## 4. Si funksionon
 
 | Hapi | Çfarë ndodh |
