@@ -62,7 +62,7 @@ Rrjedha: `schema.sql` (triggerët + `pg_net`) → Edge Function [`send-push`](fu
 
    Pa këto dy sekrete triggerët nuk bëjnë asgjë, ndaj aplikacioni funksionon normalisht edhe pa njoftime.
 4. **Frontend**: shto `VITE_VAPID_PUBLIC_KEY=<çelësi publik>` te `frontend/.env.local` dhe te Vercel, pastaj **Redeploy**.
-5. Përdoruesi i aktivizon te menuja e profilit → **Njoftimet push**. Në iPhone (iOS 16.4+) njoftimet punojnë vetëm
+5. Përdoruesi i aktivizon te tab-i **Cilësimet** (rrotëza në shiritin poshtë) → **Preferencat** → **Njoftimet push**. Në iPhone (iOS 16.4+) njoftimet punojnë vetëm
    kur faqja është shtuar te **Home Screen** dhe hapet prej andej.
 
 **Aplikacioni mobil** merr të njëjtat njoftime përmes Expo Push (tabela `user_expo_push_tokens`). Konfigurimi është te [`mobile/README.md`](../mobile/README.md#njoftimet-push).

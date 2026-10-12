@@ -481,9 +481,12 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
                   onClick={handleTogglePush}
                   className="w-full px-4 py-3.5 text-left text-sm font-medium text-slate-800 flex items-center justify-between cursor-pointer disabled:opacity-60"
                 >
-                  <span className="flex items-center space-x-3">
-                    <Bell className="w-5 h-5 text-slate-500" />
-                    <span>Njoftimet push</span>
+                  <span className="flex items-center space-x-3 min-w-0 mr-3">
+                    <Bell className="w-5 h-5 text-slate-500 shrink-0" />
+                    <span className="min-w-0">
+                      <span className="block">Njoftimet push</span>
+                      <span className="block text-xs font-normal text-slate-500">Shpenzime të reja, pagesa dhe anëtarë të rinj në këtë pajisje</span>
+                    </span>
                   </span>
                   <span className={`w-11 h-6 rounded-full p-0.5 shrink-0 transition-colors ${pushEnabled ? 'bg-indigo-600' : 'bg-slate-300'}`}>
                     <span className={`block w-5 h-5 rounded-full bg-white shadow transition-transform ${pushEnabled ? 'translate-x-5' : ''}`} />
