@@ -393,7 +393,7 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
               emptyState
             ) : (
               <div className="bg-white rounded-2xl border border-slate-100 shadow-sm divide-y divide-slate-100 mb-6">
-                {expenses.slice(0, 5).map((expense) => (
+                {expenses.slice(0, 3).map((expense) => (
                   <ExpenseItem key={expense.id} expense={expense} currentUserId={currentUserId} onEdit={onNavigateToEdit} onDelete={handleDeleteClick} />
                 ))}
               </div>
