@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { X, Download, Printer, FileText, CheckCircle2, ArrowRight, Users, Euro } from 'lucide-react';
+import { X, Download, FileText, CheckCircle2, ArrowRight } from 'lucide-react';
 import { expenseApi } from '../api/expenseApi';
 import { generatePdfReport } from '../utils/generatePdfReport';
 import { formatEuro } from '../utils/balances';
+import Modal from './Modal';
 
 export default function ReportModal({ isOpen, onClose, household }) {
   const [loading, setLoading] = useState(true);
@@ -38,38 +39,33 @@ export default function ReportModal({ isOpen, onClose, household }) {
     }
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
-
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl max-w-lg w-full max-h-[90vh] flex flex-col shadow-2xl border border-slate-100 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-        
+    <Modal isOpen onClose={onClose} size="lg" labelledBy="report-title" className="flex flex-col overflow-hidden">
         {/* Modal Header */}
-        <div className="px-6 py-4 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
-          <div className="flex items-center space-x-2.5">
+        <div className="px-5 sm:px-6 py-4 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
+          <div className="flex items-center space-x-2.5 min-w-0">
             <div className="w-9 h-9 rounded-xl bg-indigo-100 flex items-center justify-center text-indigo-600">
               <FileText className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-slate-800">Raporti i Barazimit</h2>
+              <h2 id="report-title" className="text-xl font-extrabold tracking-tight text-slate-900">Raporti i Barazimit</h2>
               <p className="text-xs text-slate-500">{group?.name || 'Banesa'} • {report?.month || 'Muaji Aktual'}</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-slate-200 hover:bg-slate-300 flex items-center justify-center text-slate-600 transition-colors"
+            className="w-9 h-9 rounded-full bg-slate-200 hover:bg-slate-300 flex items-center justify-center text-slate-600 transition-colors shrink-0 ml-3 cursor-pointer"
+            aria-label="Mbyll"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Modal Body */}
-        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+        <div className="flex-1 overflow-y-auto px-5 sm:px-6 py-5 space-y-5">
           {loading ? (
             <div className="py-12 text-center">
-              <div className="inline-block w-8 h-8 border-3 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+              <div className="inline-block w-8 h-8 border-[3px] border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
               <p className="text-xs text-slate-500 mt-2 font-medium">Duke përgatitur raportin...</p>
             </div>
           ) : error ? (
@@ -79,9 +75,9 @@ export default function ReportModal({ isOpen, onClose, household }) {
           ) : report ? (
             <>
               {/* 1. Statistikat Kryesore */}
-              <div className="grid grid-cols-3 gap-2.5">
+              <div className="grid grid-cols-3 gap-2">
                 <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-3 text-center">
-                  <span className="text-xs font-bold text-indigo-600 uppercase block mb-0.5">
+                  <span className="text-[10px] sm:text-xs font-bold text-indigo-600 uppercase block mb-0.5 leading-tight">
                     Totali Faturave
                   </span>
                   <span className="text-base font-black text-indigo-900">
@@ -90,7 +86,7 @@ export default function ReportModal({ isOpen, onClose, household }) {
                 </div>
 
                 <div className="bg-purple-50 border border-purple-100 rounded-2xl p-3 text-center">
-                  <span className="text-xs font-bold text-purple-600 uppercase block mb-0.5">
+                  <span className="text-[10px] sm:text-xs font-bold text-purple-600 uppercase block mb-0.5 leading-tight">
                     Anëtarë
                   </span>
                   <span className="text-base font-black text-purple-900">
@@ -99,7 +95,7 @@ export default function ReportModal({ isOpen, onClose, household }) {
                 </div>
 
                 <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-3 text-center">
-                  <span className="text-xs font-bold text-emerald-600 uppercase block mb-0.5">
+                  <span className="text-[10px] sm:text-xs font-bold text-emerald-600 uppercase block mb-0.5 leading-tight">
                     Pjesa për person
                   </span>
                   <span className="text-base font-black text-emerald-900">
@@ -126,7 +122,7 @@ export default function ReportModal({ isOpen, onClose, household }) {
                         key={idx}
                         className="bg-white border border-slate-200 rounded-xl p-2.5 flex items-center justify-between text-xs"
                       >
-                        <div className="flex items-center space-x-2 font-medium text-slate-800">
+                        <div className="flex items-center space-x-2 font-medium text-slate-800 min-w-0 mr-2">
                           <span className="font-bold text-rose-600">{s.from}</span>
                           <ArrowRight className="w-3.5 h-3.5 text-slate-500" />
                           <span className="font-bold text-emerald-600">{s.to}</span>
@@ -145,7 +141,7 @@ export default function ReportModal({ isOpen, onClose, household }) {
                 <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
                   Sa ka paguar secili anëtar:
                 </h4>
-                <div className="border border-slate-200 rounded-2xl overflow-hidden text-xs">
+                <div className="border border-slate-200 rounded-2xl overflow-x-auto text-xs">
                   <table className="w-full text-left">
                     <thead className="bg-slate-100 text-slate-600 font-bold border-b border-slate-200">
                       <tr>
@@ -183,10 +179,10 @@ export default function ReportModal({ isOpen, onClose, household }) {
         </div>
 
         {/* Modal Footer (Buttons) */}
-        <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end space-x-2">
+        <div className="px-5 sm:px-6 py-4 bg-slate-50 border-t border-slate-100 grid grid-cols-2 gap-3">
           <button
             onClick={onClose}
-            className="px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-200 text-xs font-semibold text-slate-700 transition-colors"
+            className="py-3 rounded-2xl border border-slate-200 bg-white hover:bg-slate-100 text-sm font-bold text-slate-700 transition-colors cursor-pointer"
           >
             Mbyll
           </button>
@@ -194,13 +190,12 @@ export default function ReportModal({ isOpen, onClose, household }) {
           <button
             onClick={handleDownloadPdf}
             disabled={loading || !report}
-            className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold flex items-center space-x-1.5 shadow-sm shadow-indigo-500/25 transition-all active:scale-95 disabled:opacity-50"
+            className="py-3 rounded-2xl bg-orange-500 hover:bg-orange-600 text-white text-sm font-bold flex items-center justify-center space-x-1.5 shadow-md shadow-orange-500/30 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
           >
             <Download className="w-4 h-4" />
-            <span>Shkarko në PDF</span>
+            <span>Shkarko PDF</span>
           </button>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

@@ -17,6 +17,7 @@ export default {
         rose: fromVars('rose'),
         emerald: fromVars('emerald'),
         amber: fromVars('amber'),
+        orange: fromVars('orange'),
         sky: fromVars('sky'),
         blue: fromVars('blue'),
         pink: fromVars('pink'),

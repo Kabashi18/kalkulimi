@@ -23,7 +23,7 @@ const SPLIT_MODES = [
 // Vlerat në fusha shfaqen me presje dhjetore (si gjithë aplikacioni); pranohet edhe pika
 const toInput = (n) => String(n).replace('.', ',');
 
-// Chip i vogël i përbashkët për zgjedhjet (pagues, anëtarë)
+// Chip i vogël i përbashkët për zgjedhjet (anëtarët)
 const Chip = ({ active, onClick, children }) => (
   <button
     type="button"
@@ -54,8 +54,8 @@ export default function AddExpenseScreen({ onBack, onExpenseAdded, currentUserId
   const [selectedIds, setSelectedIds] = useState(expenseToEdit?.member_ids?.length ? expenseToEdit.member_ids : null);
   // Data e shpenzimit (p.sh. fatura e shtatorit e regjistruar në tetor)
   const [expenseDate, setExpenseDate] = useState(expenseToEdit?.expense_date || todayISO());
-  // Kush e pagoi (si parazgjedhje: përdoruesi i kyçur)
-  const [paidBy, setPaidBy] = useState(expenseToEdit?.paid_by_user_id || currentUserId);
+  // Paguesi është gjithmonë përdoruesi i kyçur; te ndryshimi ruhet paguesi origjinal i shpenzimit
+  const paidBy = expenseToEdit?.paid_by_user_id || currentUserId;
 
   // Mënyra e ndarjes: 'equal' | 'exact' (shuma në €) | 'percent' (përqindje)
   const [splitMode, setSplitMode] = useState(expenseToEdit?.split_mode || 'equal');
@@ -218,15 +218,15 @@ export default function AddExpenseScreen({ onBack, onExpenseAdded, currentUserId
               id="amount"
               type="text"
               inputMode="decimal"
-              autoFocus={!isEditing}
+              autoFocus
               value={amount}
               onChange={(e) => setAmount(e.target.value.replace(/[^\d.,]/g, ''))}
               placeholder="0,00"
               // Gjerësia ndjek numrin e shifrave, që "€" të qëndrojë ngjitur me shumën
               style={{ width: `${Math.max(amount.length, 4) + 0.5}ch` }}
-              className="max-w-[80%] text-right text-5xl font-extrabold text-slate-900 placeholder-slate-300 outline-none bg-transparent tracking-tight"
+              className="max-w-[80%] text-right text-6xl font-extrabold text-slate-900 placeholder-slate-300 outline-none bg-transparent tracking-tight"
             />
-            <span className="text-3xl font-bold text-slate-500 ml-1">€</span>
+            <span className="text-4xl font-bold text-slate-500 ml-1">€</span>
           </div>
         </div>
 
@@ -287,6 +287,7 @@ export default function AddExpenseScreen({ onBack, onExpenseAdded, currentUserId
             </button>
           ))}
         </div>
+        <p className="text-xs text-slate-500 mt-2 px-1">Shpenzimet personale nuk ndikojnë në bilancin e banesës.</p>
 
         {/* 5. Përmbledhja: prekja e saj hap detajet */}
         <button
@@ -311,19 +312,6 @@ export default function AddExpenseScreen({ onBack, onExpenseAdded, currentUserId
 
         {detailsOpen && (
           <div className="mt-3 space-y-5 animate-in fade-in duration-150">
-            {isShared && members.length > 1 && (
-              <div>
-                <p className="text-sm font-semibold text-slate-700 mb-2">Kush e pagoi?</p>
-                <div className="flex flex-wrap gap-2">
-                  {members.map((m) => (
-                    <Chip key={m.id} active={paidBy === m.id} onClick={() => setPaidBy(m.id)}>
-                      {m.id === currentUserId ? 'Unë' : m.name.split(' ')[0]}
-                    </Chip>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {isShared && (
               <div>
                 <p className="text-sm font-semibold text-slate-700 mb-2">Ndahet me</p>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { Plus, AlertTriangle, Receipt, CheckCircle, LogOut, Copy, Check, Users, Share2, DoorOpen, UserPlus, Moon, Bell, Home, ChevronRight } from 'lucide-react';
+import { AlertTriangle, Receipt, CheckCircle, LogOut, Copy, Check, Share2, DoorOpen, UserPlus, Moon, Bell, ChevronRight, ChevronLeft } from 'lucide-react';
 import SummaryCard from '../components/SummaryCard';
 import BalanceSettlement from '../components/BalanceSettlement';
 import ExpenseItem from '../components/ExpenseItem';
@@ -7,6 +7,7 @@ import CategoryChart from '../components/CategoryChart';
 import DeleteConfirmModal from '../components/DeleteConfirmModal';
 import ReportModal from '../components/ReportModal';
 import ConfirmDialog from '../components/ConfirmDialog';
+import Navigation from '../components/Navigation';
 import { expenseApi } from '../api/expenseApi';
 import { householdApi } from '../api/householdApi';
 import { isDarkTheme, setDarkTheme } from '../lib/theme';
@@ -29,12 +30,7 @@ const LIST_FILTERS = [
   { id: 'personal', label: 'Personale' }
 ];
 
-// Tab-et poshtë: Përmbledhja · Shpenzimet · Banesa
-const TABS = [
-  { id: 'home', label: 'Përmbledhja', Icon: Home },
-  { id: 'expenses', label: 'Shpenzimet', Icon: Receipt },
-  { id: 'household', label: 'Banesa', Icon: Users }
-];
+// Tab-et: 'home' (Dashboard), 'expenses' (lista e plotë, hapet nga Dashboard-i), 'settings' (Cilësimet)
 // Tab-i i fundit ruhet sa është hapur faqja (Dashboard-i rikrijohet pas ruajtjes së një shpenzimi)
 let lastTab = 'home';
 
@@ -53,13 +49,11 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
     setTabState(next);
     contentRef.current?.scrollTo(0, 0);
   };
-  const [menuOpen, setMenuOpen] = useState(false);
   const [darkTheme, setDarkThemeState] = useState(isDarkTheme);
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
   const [copied, setCopied] = useState(false);
   const toastTimer = useRef(null);
-  const menuRef = useRef(null);
 
   // Modali i largimit: null | 'blocked' (ka borxhe) | 'confirm'
   const [leaveDialog, setLeaveDialog] = useState(null);
@@ -163,14 +157,6 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
       setPushBusy(false);
     }
   };
-
-  // Mbyll menunë e profilit kur klikohet jashtë
-  useEffect(() => {
-    if (!menuOpen) return undefined;
-    const close = (e) => menuRef.current && !menuRef.current.contains(e.target) && setMenuOpen(false);
-    document.addEventListener('mousedown', close);
-    return () => document.removeEventListener('mousedown', close);
-  }, [menuOpen]);
 
   const handleCopyCode = async () => {
     try {
@@ -302,103 +288,45 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
         </div>
       )}
 
-      {/* Header: banesa + përshëndetja majtas, profili djathtas */}
-      <header className="px-5 py-3.5 bg-white border-b border-slate-100 sticky top-0 z-20">
-        <div className="flex justify-between items-center">
-          <div className="min-w-0">
+      {/* Header: titulli, banesa dhe kodi i saj majtas, profili djathtas */}
+      <header className="px-4 sm:px-5 py-3 bg-white border-b border-slate-100 sticky top-0 z-20">
+        <div className="flex justify-between items-start">
+          <div className="min-w-0 mr-3">
+            <p className="text-xs font-bold uppercase tracking-wider text-indigo-600">Kalkulimi</p>
             <button
-              onClick={() => setTab('household')}
-              className="flex items-center space-x-1 text-xs font-semibold text-slate-500 hover:text-indigo-600 cursor-pointer"
+              onClick={() => setTab('settings')}
+              className="block max-w-full text-left text-lg font-bold text-slate-900 hover:text-indigo-600 truncate cursor-pointer"
               title="Banesa dhe ftesa"
             >
-              <Users className="w-3.5 h-3.5" />
-              <span className="truncate max-w-[180px]">{household.name}</span>
-              <span className="text-slate-500">· {members.length || 1}</span>
+              {household.name}
             </button>
-            <h1 className="text-lg font-bold text-slate-900 truncate">Përshëndetje, {activeUserName.split(' ')[0]}</h1>
+            <div className="flex items-center space-x-2 mt-0.5">
+              <span className="text-xs font-semibold tracking-widest text-slate-500 truncate">{household.code}</span>
+              <button
+                onClick={handleCopyCode}
+                className="shrink-0 inline-flex items-center space-x-1 px-2 py-0.5 rounded-md bg-slate-100 hover:bg-slate-200 text-[11px] font-semibold text-slate-600 cursor-pointer"
+                aria-label="Kopjo kodin e banesës"
+              >
+                {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                <span>{copied ? 'U kopjua' : 'Kopjo'}</span>
+              </button>
+            </div>
           </div>
 
-          {/* Menuja e profilit (dalja nuk është më buton i kuq në header) */}
-          <div className="relative shrink-0" ref={menuRef}>
-            <button
-              onClick={() => setMenuOpen(!menuOpen)}
-              className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-700 font-black text-sm flex items-center justify-center hover:bg-indigo-200 cursor-pointer"
-              aria-label="Menuja e profilit"
-              aria-expanded={menuOpen}
-            >
-              {initials(activeUserName)}
-            </button>
-            {menuOpen && (
-              <div className="absolute right-0 top-12 z-30 w-60 bg-white rounded-2xl shadow-xl border border-slate-100 py-2 animate-in fade-in zoom-in-95 duration-150">
-                <div className="px-4 py-2 border-b border-slate-100 mb-1">
-                  <p className="text-sm font-bold text-slate-900 truncate">{activeUserName}</p>
-                  <p className="text-xs text-slate-500 truncate">{user?.email}</p>
-                </div>
-                <button
-                  onClick={() => {
-                    setMenuOpen(false);
-                    setTab('household');
-                  }}
-                  className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center space-x-2.5 cursor-pointer"
-                >
-                  <UserPlus className="w-4 h-4 text-slate-500" />
-                  <span>Banesa & ftesa</span>
-                </button>
-                {/* Tema e errët: opsion shtesë që përdoruesi e ndez vetë (parazgjedhja është e çelët) */}
-                <button
-                  role="switch"
-                  aria-checked={darkTheme}
-                  onClick={() => {
-                    setDarkTheme(!darkTheme);
-                    setDarkThemeState(!darkTheme);
-                  }}
-                  className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center justify-between cursor-pointer"
-                >
-                  <span className="flex items-center space-x-2.5">
-                    <Moon className="w-4 h-4 text-slate-500" />
-                    <span>Tema e errët</span>
-                  </span>
-                  <span className={`w-9 h-5 rounded-full p-0.5 transition-colors ${darkTheme ? 'bg-indigo-600' : 'bg-slate-300'}`}>
-                    <span className={`block w-4 h-4 rounded-full bg-white shadow transition-transform ${darkTheme ? 'translate-x-4' : ''}`} />
-                  </span>
-                </button>
-                {/* Njoftimet push për shpenzimet e përbashkëta, pagesat dhe anëtarët e rinj */}
-                {pushApi.isConfigured() && (
-                  <button
-                    role="switch"
-                    aria-checked={pushEnabled}
-                    disabled={pushBusy}
-                    onClick={handleTogglePush}
-                    className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center justify-between cursor-pointer disabled:opacity-60"
-                  >
-                    <span className="flex items-center space-x-2.5">
-                      <Bell className="w-4 h-4 text-slate-500" />
-                      <span>Njoftimet push</span>
-                    </span>
-                    <span className={`w-9 h-5 rounded-full p-0.5 transition-colors ${pushEnabled ? 'bg-indigo-600' : 'bg-slate-300'}`}>
-                      <span className={`block w-4 h-4 rounded-full bg-white shadow transition-transform ${pushEnabled ? 'translate-x-4' : ''}`} />
-                    </span>
-                  </button>
-                )}
-                <button
-                  onClick={() => {
-                    setMenuOpen(false);
-                    onLogout();
-                  }}
-                  className="w-full px-4 py-2.5 text-left text-sm text-rose-600 hover:bg-rose-50 flex items-center space-x-2.5 cursor-pointer"
-                >
-                  <LogOut className="w-4 h-4" />
-                  <span>Dil nga llogaria</span>
-                </button>
-              </div>
-            )}
-          </div>
+          <button
+            onClick={() => setTab('settings')}
+            className="w-10 h-10 shrink-0 rounded-full bg-indigo-100 text-indigo-700 font-black text-sm flex items-center justify-center hover:bg-indigo-200 cursor-pointer"
+            aria-label="Cilësimet e profilit"
+            title={activeUserName}
+          >
+            {initials(activeUserName)}
+          </button>
         </div>
 
       </header>
 
       {/* Përmbajtja */}
-      <div ref={contentRef} className="flex-1 overflow-y-auto px-5 py-4 pb-32">
+      <div ref={contentRef} className="flex-1 overflow-y-auto overflow-x-hidden px-4 sm:px-5 py-4 pb-32">
         {error && (
           <div className="p-3.5 mb-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-start space-x-2.5 text-amber-900 text-sm">
             <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
@@ -406,20 +334,6 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
               <p className="font-semibold">Vërejtje për lidhjen</p>
               <p className="text-amber-800 text-xs leading-relaxed mt-0.5">{error}</p>
             </div>
-          </div>
-        )}
-
-        {/* Ftesa: kur je ende i vetëm në banesë */}
-        {!loading && members.length === 1 && tab === 'home' && (
-          <div className="mb-4 p-5 rounded-3xl bg-white border border-indigo-100 shadow-sm">
-            <div className="flex items-center space-x-2 mb-1">
-              <UserPlus className="w-5 h-5 text-indigo-600" />
-              <h3 className="text-base font-bold text-slate-900">Fto shokët e banesës</h3>
-            </div>
-            <p className="text-sm text-slate-500 mb-3">
-              Je i vetëm në "{household.name}". Dërgoju shokëve këtë kod për t'u bashkuar.
-            </p>
-            {invitePanel}
           </div>
         )}
 
@@ -433,7 +347,7 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
           </div>
         ) : tab === 'home' ? (
           <>
-            {/* PËRMBLEDHJA: borxhet, muaji, kategoritë, të fundit */}
+            {/* PËRMBLEDHJA: borxhi kryesor, shpenzimet e fundit, pastaj muaji dhe kategoritë */}
             <BalanceSettlement
               balance={data?.summary?.settlementBalance}
               settlements={data?.settlements || []}
@@ -446,11 +360,23 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
               onDownloadReport={() => setIsReportModalOpen(true)}
               onError={(msg) => showToast(msg, 'error')}
             />
-            {monthCard}
-            {categoryData.length > 0 && <CategoryChart categoryData={categoryData} />}
+
+            {/* Ftesa: kur je ende i vetëm në banesë */}
+            {members.length === 1 && (
+              <div className="mb-4 p-5 rounded-2xl bg-white border border-indigo-100 shadow-sm">
+                <div className="flex items-center space-x-2 mb-1">
+                  <UserPlus className="w-5 h-5 text-indigo-600" />
+                  <h3 className="text-base font-bold text-slate-900">Fto shokët e banesës</h3>
+                </div>
+                <p className="text-sm text-slate-500 mb-3">
+                  Je i vetëm në "{household.name}". Dërgoju shokëve këtë kod për t'u bashkuar.
+                </p>
+                {invitePanel}
+              </div>
+            )}
 
             <div className="flex justify-between items-center mb-2.5 mt-6">
-              <h2 className="text-base font-bold text-slate-900">Të fundit</h2>
+              <h2 className="text-base font-bold text-slate-900">Shpenzimet e Fundit</h2>
               {expenses.length > 0 && (
                 <button
                   onClick={() => setTab('expenses')}
@@ -463,16 +389,25 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
             {expenses.length === 0 ? (
               emptyState
             ) : (
-              <div className="bg-white rounded-2xl border border-slate-100 divide-y divide-slate-100">
-                {expenses.slice(0, 3).map((expense) => (
+              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm divide-y divide-slate-100 mb-6">
+                {expenses.slice(0, 5).map((expense) => (
                   <ExpenseItem key={expense.id} expense={expense} currentUserId={currentUserId} onEdit={onNavigateToEdit} onDelete={handleDeleteClick} />
                 ))}
               </div>
             )}
+
+            {monthCard}
+            {categoryData.length > 0 && <CategoryChart categoryData={categoryData} />}
           </>
         ) : tab === 'expenses' ? (
           <>
             {/* SHPENZIMET: muaji + filtri + lista e plotë sipas ditës */}
+            <button
+              onClick={() => setTab('home')}
+              className="mb-3 -ml-1 inline-flex items-center text-sm font-semibold text-slate-600 hover:text-indigo-600 cursor-pointer"
+            >
+              <ChevronLeft className="w-4 h-4" /> Dashboard
+            </button>
             {monthCard}
             <div className="flex space-x-2 mb-4 overflow-x-auto">
               {LIST_FILTERS.map((f) => (
@@ -504,14 +439,65 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
           </>
         ) : (
           <>
-            {/* BANESA: ftesa, anëtarët me bilancin tënd, largimi */}
-            <div className="p-5 rounded-3xl bg-white border border-slate-100 shadow-sm mb-4">
-              <p className="text-xs font-semibold text-slate-500">Banesa</p>
-              <h2 className="text-xl font-bold text-slate-900 mb-1">{household.name}</h2>
+            {/* CILËSIMET: profili, preferencat, banesa me ftesën dhe anëtarët, dalja */}
+            <h2 className="text-2xl font-extrabold tracking-tight text-slate-900 mb-4">Cilësimet</h2>
+
+            <div className="p-4 rounded-2xl bg-white border border-slate-100 shadow-sm mb-4 flex items-center">
+              <div className="w-12 h-12 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-base font-black mr-3 shrink-0">
+                {initials(activeUserName)}
+              </div>
+              <div className="min-w-0">
+                <p className="text-base font-bold text-slate-900 truncate">{activeUserName}</p>
+                <p className="text-sm text-slate-500 truncate">{user?.email}</p>
+              </div>
+            </div>
+
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 px-1">Preferencat</h3>
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm divide-y divide-slate-100 mb-6">
+              {/* Tema e errët: opsion shtesë që përdoruesi e ndez vetë (parazgjedhja është e çelët) */}
+              <button
+                role="switch"
+                aria-checked={darkTheme}
+                onClick={() => {
+                  setDarkTheme(!darkTheme);
+                  setDarkThemeState(!darkTheme);
+                }}
+                className="w-full px-4 py-3.5 text-left text-sm font-medium text-slate-800 flex items-center justify-between cursor-pointer"
+              >
+                <span className="flex items-center space-x-3">
+                  <Moon className="w-5 h-5 text-slate-500" />
+                  <span>Tema e errët</span>
+                </span>
+                <span className={`w-11 h-6 rounded-full p-0.5 shrink-0 transition-colors ${darkTheme ? 'bg-indigo-600' : 'bg-slate-300'}`}>
+                    <span className={`block w-5 h-5 rounded-full bg-white shadow transition-transform ${darkTheme ? 'translate-x-5' : ''}`} />
+                  </span>
+              </button>
+              {/* Njoftimet push për shpenzimet e përbashkëta, pagesat dhe anëtarët e rinj */}
+              {pushApi.isConfigured() && (
+                <button
+                  role="switch"
+                  aria-checked={pushEnabled}
+                  disabled={pushBusy}
+                  onClick={handleTogglePush}
+                  className="w-full px-4 py-3.5 text-left text-sm font-medium text-slate-800 flex items-center justify-between cursor-pointer disabled:opacity-60"
+                >
+                  <span className="flex items-center space-x-3">
+                    <Bell className="w-5 h-5 text-slate-500" />
+                    <span>Njoftimet push</span>
+                  </span>
+                  <span className={`w-11 h-6 rounded-full p-0.5 shrink-0 transition-colors ${pushEnabled ? 'bg-indigo-600' : 'bg-slate-300'}`}>
+                    <span className={`block w-5 h-5 rounded-full bg-white shadow transition-transform ${pushEnabled ? 'translate-x-5' : ''}`} />
+                  </span>
+                </button>
+              )}
+            </div>
+
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 px-1">Banesa</h3>
+            <div className="p-5 rounded-2xl bg-white border border-slate-100 shadow-sm mb-4">
+              <h2 className="text-xl font-bold text-slate-900 mb-1 break-words">{household.name}</h2>
               <p className="text-sm text-slate-500 mb-3">Ftoji shokët: ata regjistrohen dhe shkruajnë këtë kod.</p>
               {invitePanel}
             </div>
-
             <h2 className="text-base font-bold text-slate-900 mb-2.5">Anëtarët ({members.length})</h2>
             <ul className="bg-white rounded-2xl border border-slate-100 divide-y divide-slate-100 mb-6">
               {members.map((m) => {
@@ -548,41 +534,19 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
               <DoorOpen className="w-4 h-4" />
               <span>Largohu nga banesa</span>
             </button>
+            <button
+              onClick={onLogout}
+              className="w-full mt-3 py-3 rounded-2xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 hover:bg-slate-100 inline-flex items-center justify-center space-x-2 cursor-pointer"
+            >
+              <LogOut className="w-4 h-4" />
+              <span>Dil nga llogaria</span>
+            </button>
           </>
         )}
       </div>
 
-      {/* Butoni lundrues "+" (arrihet lehtë me gishtin e madh); jo te tab-i "Banesa" */}
-      {tab !== 'household' && (
-        <button
-          onClick={onNavigateToAdd}
-          className="absolute bottom-20 right-5 z-20 h-14 pl-4 pr-5 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm shadow-lg shadow-indigo-600/30 flex items-center space-x-1.5 transition-all active:scale-95 cursor-pointer"
-          aria-label="Shto shpenzim"
-        >
-          <Plus className="w-5 h-5" />
-          <span>Shto</span>
-        </button>
-      )}
-
-      {/* Shiriti i tab-eve poshtë */}
-      <nav className="absolute bottom-0 inset-x-0 z-20 bg-white border-t border-slate-100 grid grid-cols-3" aria-label="Navigimi kryesor">
-        {TABS.map(({ id, label, Icon }) => {
-          const active = tab === id;
-          return (
-            <button
-              key={id}
-              onClick={() => setTab(id)}
-              aria-current={active ? 'page' : undefined}
-              className={`flex flex-col items-center justify-center pt-2.5 pb-3 text-xs font-semibold cursor-pointer transition-colors ${
-                active ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              <Icon className="w-5 h-5 mb-0.5" strokeWidth={active ? 2.5 : 2} />
-              <span>{label}</span>
-            </button>
-          );
-        })}
-      </nav>
+      {/* Tab bar i poshtëm: Dashboard · Shto · Cilësimet */}
+      <Navigation active={tab === 'settings' ? 'settings' : 'home'} onNavigate={setTab} onAdd={onNavigateToAdd} />
 
       {/* Modali i Konfirmimit të Fshirjes */}
       <DeleteConfirmModal
@@ -608,7 +572,7 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
             </li>
           ))}
         </ul>
-        <p>Përdor "Laje Borxhin" / "Shëno të marrë" te kartela e borxheve.</p>
+        <p>Përdor "Laje Borxhin" / "Shëno të marrë" te kartela e borxheve në Dashboard.</p>
       </ConfirmDialog>
       <ConfirmDialog
         isOpen={leaveDialog === 'confirm'}

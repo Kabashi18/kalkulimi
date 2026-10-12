@@ -1,10 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Zap, Home, Utensils, Wifi, Droplets, Receipt, Sparkles, MoreVertical, Edit2, Trash2, Users, Lock } from 'lucide-react';
+import { Lightbulb, Home, Utensils, Wifi, Droplets, Receipt, Sparkles, MoreVertical, Edit2, Trash2, Users, Lock } from 'lucide-react';
 import { expenseEffectFor, formatEuro } from '../utils/balances';
 
 const getCategoryDetails = (category = '') => {
   const cat = category.toLowerCase();
-  if (cat.includes('rrym') || cat.includes('energji') || cat.includes('drita')) return { Icon: Zap, color: 'text-amber-600', bg: 'bg-amber-50' };
+  if (cat.includes('rrym') || cat.includes('energji') || cat.includes('drita')) return { Icon: Lightbulb, color: 'text-amber-600', bg: 'bg-amber-50' };
   if (cat.includes('qira') || cat.includes('banes')) return { Icon: Home, color: 'text-indigo-600', bg: 'bg-indigo-50' };
   if (cat.includes('ushqim') || cat.includes('market') || cat.includes('dreka') || cat.includes('kafe')) return { Icon: Utensils, color: 'text-emerald-600', bg: 'bg-emerald-50' };
   if (cat.includes('internet') || cat.includes('wifi') || cat.includes('tv')) return { Icon: Wifi, color: 'text-sky-600', bg: 'bg-sky-50' };
@@ -66,7 +66,7 @@ export default function ExpenseItem({ expense, currentUserId, onEdit, onDelete }
       <div className="text-right shrink-0">
         <p className={`text-xs ${effectStyle.color}`}>{effectStyle.label}</p>
         {effect.type !== 'none' && (
-          <p className={`text-sm font-bold ${effectStyle.color === 'text-slate-500' ? 'text-slate-700' : effectStyle.color}`}>
+          <p className={`text-base font-extrabold ${effectStyle.color === 'text-slate-500' ? 'text-slate-700' : effectStyle.color}`}>
             {formatEuro(effect.amount)}
           </p>
         )}
