@@ -47,7 +47,10 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
   const setTab = (next) => {
     lastTab = next;
     setTabState(next);
-    contentRef.current?.scrollTo(0, 0);
+    // Çdo ndërrim tab-i (edhe klikimi i tab-it aktual) fillon nga kreu: në celular lëviz dritarja,
+    // në desktop lëviz kontejneri i përmbajtjes
+    contentRef.current?.scrollTo({ top: 0, behavior: 'instant' });
+    window.scrollTo({ top: 0, behavior: 'instant' });
   };
   const [darkTheme, setDarkThemeState] = useState(isDarkTheme);
   const [pushEnabled, setPushEnabled] = useState(false);
