@@ -192,6 +192,7 @@ export default function App() {
               household={profile.household}
               onLogout={handleLogout}
               onLeftHousehold={loadProfile}
+              onProfileChanged={loadProfile}
               onNavigateToAdd={handleNavigateToAdd}
               onNavigateToEdit={handleNavigateToEdit}
             />

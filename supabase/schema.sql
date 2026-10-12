@@ -729,3 +729,62 @@ revoke execute on function public.save_expo_push_token(text, text) from public, 
 revoke execute on function public.delete_expo_push_token(text) from public, anon;
 grant execute on function public.save_expo_push_token(text, text) to authenticated;
 grant execute on function public.delete_expo_push_token(text) to authenticated;
+
+-- ------------------------------------------------------------------------------
+-- 11. FOTOJA E PROFILIT (AVATAR)
+-- ------------------------------------------------------------------------------
+-- Fotoja ruhet në bucket-in publik `avatars` si `{user_id}.jpg` (e zvogëluar në 400x400 nga frontend-i).
+-- Leximi bëhet përmes URL-së publike; shkrimi lejohet vetëm në skedarin e vetë përdoruesit.
+alter table public.profiles add column if not exists avatar_url text;
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('avatars', 'avatars', true, 1048576, array['image/jpeg'])
+on conflict (id) do update
+  set public = excluded.public,
+      file_size_limit = excluded.file_size_limit,
+      allowed_mime_types = excluded.allowed_mime_types;
+
+-- Ngarkimi me "upsert" kërkon INSERT + SELECT + UPDATE mbi të njëjtin objekt
+drop policy if exists "avatars_insert_own" on storage.objects;
+create policy "avatars_insert_own" on storage.objects
+  for insert to authenticated
+  with check (bucket_id = 'avatars' and name = auth.uid()::text || '.jpg');
+
+drop policy if exists "avatars_select_own" on storage.objects;
+create policy "avatars_select_own" on storage.objects
+  for select to authenticated
+  using (bucket_id = 'avatars' and name = auth.uid()::text || '.jpg');
+
+drop policy if exists "avatars_update_own" on storage.objects;
+create policy "avatars_update_own" on storage.objects
+  for update to authenticated
+  using (bucket_id = 'avatars' and name = auth.uid()::text || '.jpg')
+  with check (bucket_id = 'avatars' and name = auth.uid()::text || '.jpg');
+
+drop policy if exists "avatars_delete_own" on storage.objects;
+create policy "avatars_delete_own" on storage.objects
+  for delete to authenticated
+  using (bucket_id = 'avatars' and name = auth.uid()::text || '.jpg');
+
+-- `avatar_url` ndryshohet vetëm përmes këtij RPC-je: pranohet vetëm URL-ja e skedarit të vet
+-- në bucket-in `avatars` (jo një adresë e jashtme që do t'u shfaqej shokëve), ose null për ta hequr.
+create or replace function public.set_my_avatar(p_url text)
+returns text
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is null then
+    raise exception 'Duhet të jeni të kyçur.';
+  end if;
+  if p_url is not null and p_url !~ ('^https?://[^/]+/storage/v1/object/public/avatars/' || auth.uid()::text || '\.jpg(\?v=[0-9]+)?$') then
+    raise exception 'Adresë e pavlefshme për foton e profilit.';
+  end if;
+  update public.profiles set avatar_url = p_url where id = auth.uid();
+  return p_url;
+end;
+$$;
+
+revoke execute on function public.set_my_avatar(text) from public, anon;
+grant execute on function public.set_my_avatar(text) to authenticated;

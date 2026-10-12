@@ -82,7 +82,8 @@ Për diagnostikim: **Edge Functions → send-push → Logs**, ose `select * from
 ### Tabelat
 
 - `households`: banesat me `code` unik
-- `profiles`: emri i përdoruesit dhe `household_id` (krijohet automatikisht pas regjistrimit)
+- `profiles`: emri i përdoruesit, `household_id` dhe `avatar_url` (krijohet automatikisht pas regjistrimit)
+- Storage `avatars`: fotot e profilit (`{user_id}.jpg`, 400x400); secili ngarkon/fshin vetëm foton e vet
 - `expenses` + `expense_splits`: shpenzimet dhe pjesa e secilit anëtar
 - `settlements`: pagesat e kthimit të borxhit ("Laje Borxhin")
 - `user_push_subscriptions`: shfletuesit ku përdoruesi ka aktivizuar njoftimet push

@@ -14,7 +14,8 @@ export const householdApi = {
 
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, name, email, household_id, household:households(id, name, code)')
+      // `*` që aplikacioni të mos prishet nëse kolona `avatar_url` (schema.sql seksioni 11) s'është shtuar ende
+      .select('*, household:households(id, name, code)')
       .eq('id', userId)
       .maybeSingle();
     if (error) throw toAppError(error, 'Dështoi ngarkimi i profilit.');
@@ -45,7 +46,7 @@ export const householdApi = {
   getMembers: async (householdId) => {
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, name, email')
+      .select('*')
       .eq('household_id', householdId)
       .order('created_at', { ascending: true });
     if (error) throw toAppError(error, 'Dështoi ngarkimi i anëtarëve.');

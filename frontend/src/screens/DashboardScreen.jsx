@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { AlertTriangle, Receipt, CheckCircle, LogOut, Copy, Check, Share2, DoorOpen, UserPlus, Moon, Bell, ChevronRight, ChevronLeft } from 'lucide-react';
+import { AlertTriangle, Receipt, CheckCircle, LogOut, Copy, Check, Share2, DoorOpen, UserPlus, Moon, Bell, ChevronRight, ChevronLeft, Camera } from 'lucide-react';
 import SummaryCard from '../components/SummaryCard';
 import BalanceSettlement from '../components/BalanceSettlement';
 import ExpenseItem from '../components/ExpenseItem';
@@ -8,10 +8,12 @@ import DeleteConfirmModal from '../components/DeleteConfirmModal';
 import ReportModal from '../components/ReportModal';
 import ConfirmDialog from '../components/ConfirmDialog';
 import Navigation from '../components/Navigation';
+import Avatar from '../components/Avatar';
 import { expenseApi } from '../api/expenseApi';
 import { householdApi } from '../api/householdApi';
 import { isDarkTheme, setDarkTheme } from '../lib/theme';
 import { pushApi } from '../api/pushApi';
+import { profileApi } from '../api/profileApi';
 import {
   isPersonalExpense,
   isInMonth,
@@ -34,10 +36,7 @@ const LIST_FILTERS = [
 // Tab-i i fundit ruhet sa është hapur faqja (Dashboard-i rikrijohet pas ruajtjes së një shpenzimi)
 let lastTab = 'home';
 
-const initials = (name = '') =>
-  name.split(' ').filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join('') || '?';
-
-export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, user, household, onLogout, onLeftHousehold }) {
+export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, user, household, onLogout, onLeftHousehold, onProfileChanged }) {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
@@ -57,6 +56,8 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
   const [pushBusy, setPushBusy] = useState(false);
   const [copied, setCopied] = useState(false);
   const toastTimer = useRef(null);
+  const avatarInputRef = useRef(null);
+  const [avatarBusy, setAvatarBusy] = useState(false);
 
   // Modali i largimit: null | 'blocked' (ka borxhe) | 'confirm'
   const [leaveDialog, setLeaveDialog] = useState(null);
@@ -74,6 +75,9 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
   const activeUserName = user?.name || 'Përdorues';
   const members = data?.members || [];
   const expenses = useMemo(() => data?.expenses || [], [data]);
+  // Fotot e profilit sipas id-së (anëtarët aktualë); null = shfaqen inicialet
+  const avatarOf = useMemo(() => Object.fromEntries((data?.members || []).map((m) => [m.id, m.avatar_url || null])), [data]);
+  const myAvatarUrl = user?.avatar_url || avatarOf[currentUserId] || null;
 
   // Muaji i zgjedhur: totali, grafiku dhe lista i referohen këtij muaji (borxhet janë gjithmonë totale)
   const [month, setMonth] = useState(() => startOfMonth());
@@ -158,6 +162,38 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
       showToast(err?.message || 'Dështoi ndryshimi i njoftimeve.', 'error');
     } finally {
       setPushBusy(false);
+    }
+  };
+
+  // Fotoja e profilit: zvogëlohet në 400x400, ngarkohet te Storage dhe ruhet te profili
+  const handleAvatarFile = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      setAvatarBusy(true);
+      await profileApi.uploadAvatar(currentUserId, file);
+      showToast('Fotoja e profilit u përditësua!');
+      onProfileChanged?.();
+      loadData();
+    } catch (err) {
+      showToast(err?.message || 'Dështoi ngarkimi i fotos.', 'error');
+    } finally {
+      setAvatarBusy(false);
+    }
+  };
+
+  const handleRemoveAvatar = async () => {
+    try {
+      setAvatarBusy(true);
+      await profileApi.removeAvatar(currentUserId);
+      showToast('Fotoja e profilit u hoq.');
+      onProfileChanged?.();
+      loadData();
+    } catch (err) {
+      showToast(err?.message || 'Dështoi heqja e fotos.', 'error');
+    } finally {
+      setAvatarBusy(false);
     }
   };
 
@@ -318,11 +354,11 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
 
           <button
             onClick={() => setTab('settings')}
-            className="w-10 h-10 shrink-0 rounded-full bg-indigo-100 text-indigo-700 font-black text-sm flex items-center justify-center hover:bg-indigo-200 cursor-pointer"
+            className="shrink-0 rounded-full hover:ring-4 hover:ring-indigo-100 transition-shadow cursor-pointer"
             aria-label="Cilësimet e profilit"
             title={activeUserName}
           >
-            {initials(activeUserName)}
+            <Avatar name={activeUserName} url={myAvatarUrl} className="w-10 h-10 text-sm font-black" tone="bg-indigo-100 text-indigo-700" />
           </button>
         </div>
 
@@ -352,6 +388,7 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
           <>
             {/* PËRMBLEDHJA: borxhi kryesor, shpenzimet e fundit, pastaj muaji dhe kategoritë */}
             <BalanceSettlement
+              avatarOf={avatarOf}
               balance={data?.summary?.settlementBalance}
               settlements={data?.settlements || []}
               currentUserId={currentUserId}
@@ -394,7 +431,7 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
             ) : (
               <div className="bg-white rounded-2xl border border-slate-100 shadow-sm divide-y divide-slate-100 mb-6">
                 {expenses.slice(0, 3).map((expense) => (
-                  <ExpenseItem key={expense.id} expense={expense} currentUserId={currentUserId} onEdit={onNavigateToEdit} onDelete={handleDeleteClick} />
+                  <ExpenseItem key={expense.id} expense={expense} payerAvatarUrl={avatarOf[expense.paid_by_user_id]} currentUserId={currentUserId} onEdit={onNavigateToEdit} onDelete={handleDeleteClick} />
                 ))}
               </div>
             )}
@@ -434,7 +471,7 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
                     <h3 className="text-xs font-semibold text-slate-500 mb-1.5 px-1">{group.label}</h3>
                     <div className="bg-white rounded-2xl border border-slate-100 divide-y divide-slate-100">
                       {group.items.map((expense) => (
-                        <ExpenseItem key={expense.id} expense={expense} currentUserId={currentUserId} onEdit={onNavigateToEdit} onDelete={handleDeleteClick} />
+                        <ExpenseItem key={expense.id} expense={expense} payerAvatarUrl={avatarOf[expense.paid_by_user_id]} currentUserId={currentUserId} onEdit={onNavigateToEdit} onDelete={handleDeleteClick} />
                       ))}
                     </div>
                   </section>
@@ -446,12 +483,47 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
             <h2 className="text-2xl font-extrabold tracking-tight text-slate-900 mb-4">Cilësimet</h2>
 
             <div className="p-4 rounded-2xl bg-white border border-slate-100 shadow-sm mb-4 flex items-center">
-              <div className="w-12 h-12 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-base font-black mr-3 shrink-0">
-                {initials(activeUserName)}
-              </div>
+              {/* Fotoja e profilit: prekja e saj hap zgjedhjen e fotos (në celular: kamera ose galeria) */}
+              <button
+                type="button"
+                onClick={() => avatarInputRef.current?.click()}
+                disabled={avatarBusy}
+                className="relative mr-4 shrink-0 rounded-full cursor-pointer disabled:opacity-60"
+                aria-label="Ndrysho foton e profilit"
+              >
+                <Avatar name={activeUserName} url={myAvatarUrl} className="w-16 h-16 text-xl font-black" tone="bg-indigo-100 text-indigo-700" />
+                <span className="absolute -bottom-0.5 -right-0.5 w-7 h-7 rounded-full bg-orange-500 text-white ring-2 ring-white flex items-center justify-center">
+                  {avatarBusy ? (
+                    <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <Camera className="w-3.5 h-3.5" />
+                  )}
+                </span>
+              </button>
+              <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarFile} />
               <div className="min-w-0">
                 <p className="text-base font-bold text-slate-900 truncate">{activeUserName}</p>
                 <p className="text-sm text-slate-500 truncate">{user?.email}</p>
+                <div className="flex items-center space-x-3 mt-1">
+                  <button
+                    type="button"
+                    onClick={() => avatarInputRef.current?.click()}
+                    disabled={avatarBusy}
+                    className="text-sm font-semibold text-indigo-600 hover:text-indigo-700 disabled:opacity-50 cursor-pointer"
+                  >
+                    {myAvatarUrl ? 'Ndrysho foton' : 'Shto foto'}
+                  </button>
+                  {myAvatarUrl && (
+                    <button
+                      type="button"
+                      onClick={handleRemoveAvatar}
+                      disabled={avatarBusy}
+                      className="text-sm font-semibold text-rose-600 hover:text-rose-700 disabled:opacity-50 cursor-pointer"
+                    >
+                      Hiq
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -510,8 +582,8 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
                 const debt = openDebts.find((d) => d.userId === m.id);
                 return (
                   <li key={m.id} className="flex items-center px-4 py-3">
-                    <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center text-sm font-bold mr-3 shrink-0">
-                      {initials(m.name)}
+                    <div className="mr-3">
+                      <Avatar name={m.name} url={m.avatar_url} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-slate-900 truncate">

@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Lightbulb, Home, Utensils, Wifi, Droplets, Receipt, Sparkles, MoreVertical, Edit2, Trash2, Users, Lock } from 'lucide-react';
 import { expenseEffectFor, formatEuro } from '../utils/balances';
+import Avatar from './Avatar';
 
 const getCategoryDetails = (category = '') => {
   const cat = category.toLowerCase();
@@ -21,7 +22,7 @@ const EFFECT_STYLES = {
   none: { label: 'nuk të përfshin', color: 'text-slate-500' }
 };
 
-export default function ExpenseItem({ expense, currentUserId, onEdit, onDelete }) {
+export default function ExpenseItem({ expense, currentUserId, payerAvatarUrl, onEdit, onDelete }) {
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef(null);
 
@@ -44,8 +45,14 @@ export default function ExpenseItem({ expense, currentUserId, onEdit, onDelete }
 
   return (
     <div className="flex items-center px-3.5 py-3">
-      <div className={`w-10 h-10 rounded-xl flex items-center justify-center mr-3 shrink-0 ${bg}`}>
+      <div className={`relative w-10 h-10 rounded-xl flex items-center justify-center mr-3 shrink-0 ${bg}`}>
         <Icon className={`w-5 h-5 ${color}`} />
+        {/* Kush e pagoi: fotoja (ose inicialet) e paguesit në qoshe, vetëm te shpenzimet e përbashkëta */}
+        {!isPersonal && (
+          <span className="absolute -bottom-1 -right-1 rounded-full ring-2 ring-white">
+            <Avatar name={expense.paid_by_name} url={payerAvatarUrl} className="w-5 h-5 text-[9px]" />
+          </span>
+        )}
       </div>
 
       <div className="flex-1 min-w-0 mr-2">

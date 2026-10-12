@@ -2,10 +2,8 @@ import React, { useState } from 'react';
 import { CheckCircle2, HandCoins, Download, X, Undo2, ArrowRight } from 'lucide-react';
 import { expenseApi } from '../api/expenseApi';
 import Modal from './Modal';
+import Avatar from './Avatar';
 import { formatDateSq, formatEuro } from '../utils/balances';
-
-const initials = (name = '') =>
-  name.split(' ').filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join('') || '?';
 
 const formatDate = (iso) => formatDateSq(new Date(iso), { year: false });
 
@@ -103,6 +101,7 @@ function SettleModal({ row, onClose, onConfirm, loading, error }) {
 
 // Kartela kryesore e Dashboard-it: bilanci neto + borxhet me secilin shok + "Laje borxhin"
 export default function BalanceSettlement({
+  avatarOf = {},
   balance = {},
   settlements = [],
   currentUserId,
@@ -177,8 +176,8 @@ export default function BalanceSettlement({
       ) : (
         <>
           <div className="flex items-center min-w-0">
-            <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center text-sm font-bold mr-3 shrink-0">
-              {initials(primary.name)}
+            <div className="mr-3">
+              <Avatar name={primary.name} url={avatarOf[primary.userId]} />
             </div>
             <p id="balance-title" className="text-base font-semibold text-slate-600 min-w-0">
               {primaryOwes ? 'Ti i ke borxh ' : ''}
@@ -220,8 +219,8 @@ export default function BalanceSettlement({
             return (
               <li key={row.userId} className="flex items-center justify-between py-1">
                 <div className="flex items-center min-w-0 mr-3">
-                  <div className="w-9 h-9 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center text-xs font-bold mr-3 shrink-0">
-                    {initials(row.name)}
+                  <div className="mr-3">
+                    <Avatar name={row.name} url={avatarOf[row.userId]} className="w-9 h-9 text-xs" />
                   </div>
                   {/* Dy rreshta që shuma të mos pritet kurrë */}
                   <div className="min-w-0">
