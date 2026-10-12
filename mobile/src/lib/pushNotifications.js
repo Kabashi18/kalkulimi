@@ -14,7 +14,7 @@ const OWNER_KEY = 'kalkulimi-push-owner';
 
 // Njoftimet shfaqen edhe kur app-i është i hapur
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({ shouldShowAlert: true, shouldPlaySound: true, shouldSetBadge: false })
+  handleNotification: async () => ({ shouldShowBanner: true, shouldShowList: true, shouldPlaySound: true, shouldSetBadge: false })
 });
 
 const read = async (key) => {
@@ -57,6 +57,10 @@ export const pushNotifications = {
     if (!Device.isDevice) throw new Error('Njoftimet push punojnë vetëm në telefon të vërtetë, jo në emulator.');
     const projectId = getProjectId();
     if (!projectId) throw new Error('Mungon projectId i EAS. Ekzekutoni "npx eas init" te dosja mobile.');
+    // Që nga SDK 53, Expo Go në Android nuk mbështet njoftimet push (duhet development build)
+    if (Platform.OS === 'android' && Constants.executionEnvironment === 'storeClient') {
+      throw new Error('Në Android njoftimet push nuk punojnë te Expo Go. Përdorni një development build (shih mobile/README.md).');
+    }
 
     if (Platform.OS === 'android') {
       await Notifications.setNotificationChannelAsync('default', {
@@ -88,6 +92,7 @@ export const pushNotifications = {
   sync: async (userId) => {
     const projectId = getProjectId();
     if (!Device.isDevice || !projectId || (await read(OWNER_KEY)) !== userId) return;
+    if (Platform.OS === 'android' && Constants.executionEnvironment === 'storeClient') return;
     const { status } = await Notifications.getPermissionsAsync();
     if (status !== 'granted') return;
 

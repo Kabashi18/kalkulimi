@@ -45,10 +45,13 @@ Konfigurimi (një herë):
    npx eas-cli login
    npx eas-cli init        # shton "extra.eas.projectId" te app.json; ky ID nuk është sekret
    ```
-3. Rinisni me `npx expo start -c` dhe hapeni me **Expo Go** në telefon të vërtetë (jo emulator).
+3. Rinisni me `npx expo start -c` dhe hapeni në telefon të vërtetë (jo emulator).
 
-Me Expo Go nuk duhet asgjë tjetër. Për një build të vetin (`eas build`) Android-i kërkon edhe çelësin FCM
-(`npx eas-cli credentials`, shih [udhëzuesin e Expo](https://docs.expo.dev/push-notifications/fcm-credentials/)).
+- **iPhone**: njoftimet punojnë direkt në **Expo Go**.
+- **Android**: që nga Expo SDK 53, Expo Go **nuk** merr më njoftime push. Duhet një build i vetin (development build):
+  `npx expo install expo-dev-client`, pastaj `npx eas-cli build --profile development --platform android`.
+  Android-i kërkon edhe çelësin FCM (`npx eas-cli credentials`, shih
+  [udhëzuesin e Expo](https://docs.expo.dev/push-notifications/fcm-credentials/)). Pjesa tjetër e aplikacionit punon normalisht në Expo Go.
 Nëse aktivizoni "Enhanced push security" te expo.dev, vendoseni tokenin si sekret të Supabase:
 `supabase secrets set EXPO_ACCESS_TOKEN=...`, kurrë në kod.
 
