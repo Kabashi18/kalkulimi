@@ -35,6 +35,8 @@ const LIST_FILTERS = [
 // Tab-et: 'home' (Dashboard), 'expenses' (lista e plotë, hapet nga Dashboard-i), 'settings' (Cilësimet)
 // Tab-i i fundit ruhet sa është hapur faqja (Dashboard-i rikrijohet pas ruajtjes së një shpenzimi)
 let lastTab = 'home';
+// Sa afër kreut / fundit (px) duhet të jetë përdoruesi që shiriti i poshtëm të shfaqet
+const NAV_EDGE_PX = 24;
 
 export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, user, household, onLogout, onLeftHousehold, onProfileChanged }) {
   const [loading, setLoading] = useState(true);
@@ -46,11 +48,21 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
   const setTab = (next) => {
     lastTab = next;
     setTabState(next);
-    // Çdo ndërrim tab-i (edhe klikimi i tab-it aktual) fillon nga kreu: në celular lëviz dritarja,
-    // në desktop lëviz kontejneri i përmbajtjes
+    // Çdo ndërrim tab-i (edhe klikimi i tab-it aktual) fillon nga kreu i kontejnerit të përmbajtjes
     contentRef.current?.scrollTo({ top: 0, behavior: 'instant' });
     window.scrollTo({ top: 0, behavior: 'instant' });
   };
+
+  // Shiriti i poshtëm (web): duket në krye të faqes, fshihet gjatë scroll-it teposhtë dhe rishfaqet
+  // i fiksuar kur arrihet fundi. Kur përmbajtja nuk ka scroll, mbetet gjithmonë i dukshëm.
+  const [navVisible, setNavVisible] = useState(true);
+  const updateNavVisibility = useCallback(() => {
+    const el = contentRef.current;
+    if (!el) return;
+    const atTop = el.scrollTop <= NAV_EDGE_PX;
+    const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - NAV_EDGE_PX;
+    setNavVisible(atTop || atBottom);
+  }, []);
   const [darkTheme, setDarkThemeState] = useState(isDarkTheme);
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
@@ -123,6 +135,16 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
       setLoading(false);
     }
   }, [household.id]);
+
+  // Lartësia e përmbajtjes ndryshon (tab, të dhënat, muaji, filtri) ose dritarja zmadhohet -> rillogarit
+  useEffect(() => {
+    updateNavVisibility();
+  }, [updateNavVisibility, tab, data, loading, month, listFilter]);
+
+  useEffect(() => {
+    window.addEventListener('resize', updateNavVisibility);
+    return () => window.removeEventListener('resize', updateNavVisibility);
+  }, [updateNavVisibility]);
 
   useEffect(() => {
     loadData();
@@ -365,7 +387,7 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
       </header>
 
       {/* Përmbajtja */}
-      <div ref={contentRef} className="flex-1 overflow-y-auto overflow-x-hidden px-4 sm:px-5 py-4 pb-32">
+      <div ref={contentRef} onScroll={updateNavVisibility} className="flex-1 overflow-y-auto overflow-x-hidden px-4 sm:px-5 py-4 pb-32">
         {error && (
           <div className="p-3.5 mb-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-start space-x-2.5 text-amber-900 text-sm">
             <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
@@ -624,7 +646,7 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
       </div>
 
       {/* Tab bar i poshtëm: Dashboard · Shto · Cilësimet */}
-      <Navigation active={tab === 'settings' ? 'settings' : 'home'} onNavigate={setTab} onAdd={onNavigateToAdd} />
+      <Navigation active={tab === 'settings' ? 'settings' : 'home'} onNavigate={setTab} onAdd={onNavigateToAdd} hidden={!navVisible} />
 
       {/* Modali i Konfirmimit të Fshirjes */}
       <DeleteConfirmModal

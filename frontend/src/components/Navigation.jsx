@@ -25,9 +25,19 @@ function Tab({ isActive, onClick, Icon, label }) {
   );
 }
 
-export default function Navigation({ active, onNavigate, onAdd }) {
+// `hidden`: gjatë scroll-it në mes të faqes shiriti largohet poshtë (bashkë me butonin "+" të ngritur)
+// dhe rishfaqet në krye ose në fund të faqes (shih DashboardScreen).
+export default function Navigation({ active, onNavigate, onAdd, hidden = false }) {
   return (
-    <nav className="absolute bottom-0 inset-x-0 z-30" aria-label="Navigimi kryesor">
+    <nav
+      className={`absolute bottom-0 inset-x-0 z-30 transition-all duration-300 ease-out ${
+        hidden ? 'translate-y-[calc(100%+2.5rem)] opacity-0 pointer-events-none' : 'translate-y-0 opacity-100'
+      }`}
+      aria-label="Navigimi kryesor"
+      aria-hidden={hidden || undefined}
+      /* inert: butonat e fshehur nuk marrin fokus me tastierë */
+      inert={hidden ? '' : undefined}
+    >
       <div className="grid grid-cols-3 items-end rounded-t-3xl border-t border-slate-200/70 bg-white/85 backdrop-blur-xl shadow-[0_-6px_24px_rgba(15,23,42,0.08)] pb-[env(safe-area-inset-bottom)]">
         <Tab isActive={active === 'home'} onClick={() => onNavigate('home')} Icon={Home} label="Dashboard" />
 
