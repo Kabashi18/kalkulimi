@@ -24,7 +24,7 @@ const EFFECT = {
 };
 
 // Shtypja e gjatë (ose ikona ⋮) hap opsionet Ndrysho / Fshij për paguesin ose regjistruesin
-export default function ExpenseItem({ expense, currentUserId, onOptions }) {
+export default function ExpenseItem({ expense, currentUserId, onOptions, onViewReceipt }) {
   const { icon, color, bg } = getCategoryDetails(expense.category);
   const isPayer = expense.is_payer === 1;
   const effect = expenseEffectFor(currentUserId, expense);
@@ -44,7 +44,21 @@ export default function ExpenseItem({ expense, currentUserId, onOptions }) {
       </View>
 
       <View className="flex-1 mr-2">
-        <Text numberOfLines={1} className="text-sm font-semibold text-slate-900 dark:text-slate-100">{expense.title}</Text>
+        <View className="flex-row items-center">
+          <Text numberOfLines={1} className="text-sm font-semibold text-slate-900 dark:text-slate-100 flex-shrink">{expense.title}</Text>
+          {/* Fatura: hap foton në madhësi të plotë (fotoja ngarkohet vetëm kur preket) */}
+          {expense.receipt_signed_url && (
+            <TouchableOpacity
+              onPress={() => onViewReceipt?.({ url: expense.receipt_signed_url, title: expense.title })}
+              className="ml-1.5 flex-row items-center px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800"
+              accessibilityLabel={`Shiko faturën e ${expense.title}`}
+              hitSlop={6}
+            >
+              <Ionicons name="attach" size={12} color={C.icon} />
+              <Text className="text-xs font-semibold text-slate-600 dark:text-slate-400 ml-0.5">Fatura</Text>
+            </TouchableOpacity>
+          )}
+        </View>
         <View className="flex-row items-center">
           <Ionicons name={isPersonal ? 'lock-closed-outline' : 'people-outline'} size={12} color={C.muted} />
           <Text numberOfLines={1} className="text-xs text-slate-500 dark:text-slate-400 ml-1 flex-1">

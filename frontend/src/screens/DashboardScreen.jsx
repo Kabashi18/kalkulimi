@@ -8,6 +8,7 @@ import DeleteConfirmModal from '../components/DeleteConfirmModal';
 import ReportModal from '../components/ReportModal';
 import ConfirmDialog from '../components/ConfirmDialog';
 import Navigation from '../components/Navigation';
+import ReceiptViewer from '../components/ReceiptViewer';
 import Avatar from '../components/Avatar';
 import { expenseApi } from '../api/expenseApi';
 import { householdApi } from '../api/householdApi';
@@ -82,6 +83,9 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
 
   // Gjendja për modalin e raportit të barazimit (PDF)
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  // Fotoja e faturës e hapur në madhësi të plotë: { url, title } ose null
+  const [receiptToView, setReceiptToView] = useState(null);
+  const closeReceipt = useCallback(() => setReceiptToView(null), []);
 
   const currentUserId = user?.id;
   const activeUserName = user?.name || 'Përdorues';
@@ -453,7 +457,7 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
             ) : (
               <div className="bg-white rounded-2xl border border-slate-100 shadow-sm divide-y divide-slate-100 mb-6">
                 {expenses.slice(0, 3).map((expense) => (
-                  <ExpenseItem key={expense.id} expense={expense} payerAvatarUrl={avatarOf[expense.paid_by_user_id]} currentUserId={currentUserId} onEdit={onNavigateToEdit} onDelete={handleDeleteClick} />
+                  <ExpenseItem key={expense.id} expense={expense} payerAvatarUrl={avatarOf[expense.paid_by_user_id]} currentUserId={currentUserId} onEdit={onNavigateToEdit} onDelete={handleDeleteClick} onViewReceipt={setReceiptToView} />
                 ))}
               </div>
             )}
@@ -493,7 +497,7 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
                     <h3 className="text-xs font-semibold text-slate-500 mb-1.5 px-1">{group.label}</h3>
                     <div className="bg-white rounded-2xl border border-slate-100 divide-y divide-slate-100">
                       {group.items.map((expense) => (
-                        <ExpenseItem key={expense.id} expense={expense} payerAvatarUrl={avatarOf[expense.paid_by_user_id]} currentUserId={currentUserId} onEdit={onNavigateToEdit} onDelete={handleDeleteClick} />
+                        <ExpenseItem key={expense.id} expense={expense} payerAvatarUrl={avatarOf[expense.paid_by_user_id]} currentUserId={currentUserId} onEdit={onNavigateToEdit} onDelete={handleDeleteClick} onViewReceipt={setReceiptToView} />
                       ))}
                     </div>
                   </section>
@@ -689,6 +693,9 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
 
       {/* Modali i Gjenerimit të Raportit në PDF */}
       <ReportModal isOpen={isReportModalOpen} onClose={() => setIsReportModalOpen(false)} household={household} />
+
+      {/* Fotoja e faturës në madhësi të plotë */}
+      <ReceiptViewer url={receiptToView?.url} title={receiptToView?.title} onClose={closeReceipt} />
     </div>
   );
 }

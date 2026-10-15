@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Lightbulb, Home, Utensils, Wifi, Droplets, Receipt, Sparkles, MoreVertical, Edit2, Trash2, Users, Lock } from 'lucide-react';
+import { Lightbulb, Home, Utensils, Wifi, Droplets, Receipt, Sparkles, MoreVertical, Edit2, Trash2, Users, Lock, Paperclip } from 'lucide-react';
 import { expenseEffectFor, formatEuro } from '../utils/balances';
 import Avatar from './Avatar';
 
@@ -22,7 +22,7 @@ const EFFECT_STYLES = {
   none: { label: 'nuk të përfshin', color: 'text-slate-500' }
 };
 
-export default function ExpenseItem({ expense, currentUserId, payerAvatarUrl, onEdit, onDelete }) {
+export default function ExpenseItem({ expense, currentUserId, payerAvatarUrl, onEdit, onDelete, onViewReceipt }) {
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef(null);
 
@@ -56,7 +56,21 @@ export default function ExpenseItem({ expense, currentUserId, payerAvatarUrl, on
       </div>
 
       <div className="flex-1 min-w-0 mr-2">
-        <p className="text-sm font-semibold text-slate-900 truncate">{expense.title}</p>
+        <div className="flex items-center min-w-0">
+          <p className="text-sm font-semibold text-slate-900 truncate">{expense.title}</p>
+          {/* Fatura: ikona hap foton në madhësi të plotë (fotoja ngarkohet vetëm kur klikohet) */}
+          {expense.receipt_signed_url && (
+            <button
+              onClick={() => onViewReceipt?.({ url: expense.receipt_signed_url, title: expense.title })}
+              className="ml-1.5 shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-600 hover:bg-indigo-50 hover:text-indigo-700 text-[11px] font-semibold cursor-pointer"
+              aria-label={`Shiko faturën e ${expense.title}`}
+              title="Shiko faturën"
+            >
+              <Paperclip className="w-3 h-3" />
+              Fatura
+            </button>
+          )}
+        </div>
         <p className="text-xs text-slate-500 truncate flex items-center">
           {isPersonal ? (
             <Lock className="w-3 h-3 mr-1 shrink-0" aria-label="Personale" />

@@ -28,6 +28,41 @@ const normalizeExpense = (row) => ({
 
 const normalizeSettlement = (row) => ({ ...row, amount: Number(row.amount) });
 
+// ------------------------------------------------------------------------------
+// Fotot e faturave: bucket PRIVAT `receipts`, rruga `{household_id}/{user_id}/{uuid}.jpg`
+// (shih supabase/schema.sql, seksioni 12). Shfaqen me URL të përkohshme (signed URL).
+// ------------------------------------------------------------------------------
+const RECEIPTS_BUCKET = 'receipts';
+const RECEIPT_URL_TTL_SECONDS = 60 * 60;
+
+// UUID v4 për emrin e skedarit (crypto.randomUUID nuk ekziston në çdo platformë, p.sh. React Native)
+const newUuid = () => {
+  if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+  });
+};
+
+// Fshirja e një skedari fature: dështimi nuk e prish asgjë (skedari thjesht mbetet në storage)
+const removeReceiptFile = async (path) => {
+  if (!path) return;
+  try {
+    await supabase.storage.from(RECEIPTS_BUCKET).remove([path]);
+  } catch {
+    /* best effort */
+  }
+};
+
+// URL të përkohshme për të gjitha faturat me një kërkesë të vetme: { [rruga]: url }
+const signReceiptUrls = async (paths) => {
+  const unique = [...new Set(paths.filter(Boolean))];
+  if (unique.length === 0) return {};
+  const { data, error } = await supabase.storage.from(RECEIPTS_BUCKET).createSignedUrls(unique, RECEIPT_URL_TTL_SECONDS);
+  if (error || !data) return {};
+  return Object.fromEntries(data.filter((d) => d.signedUrl && !d.error).map((d) => [d.path, d.signedUrl]));
+};
+
 const getCurrentUserId = async () => {
   const { data } = await supabase.auth.getUser();
   if (!data?.user) throw new Error('Sesioni ka skaduar. Ju lutem kyçuni sërish.');
@@ -40,7 +75,7 @@ const fetchHouseholdData = async (householdId) => {
     householdApi.getMembers(householdId),
     supabase
       .from('expenses')
-      .select('id, household_id, paid_by, created_by, title, total_amount, category, is_personal, expense_date, split_mode, created_at, splits:expense_splits(user_id, amount_owed)')
+      .select('id, household_id, paid_by, created_by, title, total_amount, category, is_personal, expense_date, split_mode, receipt_url, created_at, splits:expense_splits(user_id, amount_owed)')
       .eq('household_id', householdId)
       .order('expense_date', { ascending: false })
       .order('created_at', { ascending: false }),
@@ -98,6 +133,7 @@ export const expenseApi = {
     const userId = await getCurrentUserId();
     const { members, expenses, settlements } = await fetchHouseholdData(householdId);
     const nameOf = (id) => members.find((m) => m.id === id)?.name || 'Ish-anëtar';
+    const receiptUrls = await signReceiptUrls(expenses.map((e) => e.receipt_url));
 
     const enrichedExpenses = expenses.map((exp) => {
       const isPayer = exp.paid_by === userId;
@@ -110,7 +146,9 @@ export const expenseApi = {
         // Ndryshimi / fshirja lejohet për paguesin dhe për atë që e regjistroi
         can_edit: isPayer || exp.created_by === userId,
         my_split_amount: exp.isPersonal ? exp.total_amount : (mySplit?.amount_owed ?? 0),
-        member_ids: exp.splits.map((s) => s.user_id)
+        member_ids: exp.splits.map((s) => s.user_id),
+        // URL e përkohshme e fotos së faturës (null nëse s'ka ose nuk lejohet)
+        receipt_signed_url: exp.receipt_url ? receiptUrls[exp.receipt_url] || null : null
       };
     });
 
@@ -139,10 +177,36 @@ export const expenseApi = {
 
   // 4. Fshirje (lejohet për paguesin ose për atë që e regjistroi)
   deleteExpense: async (id) => {
-    const { data, error } = await supabase.from('expenses').delete().eq('id', id).select('id');
+    const { data, error } = await supabase.from('expenses').delete().eq('id', id).select('id, receipt_url');
     if (error) throw toAppError(error, 'Dështoi fshirja e shpenzimit.');
     if (!data || data.length === 0) throw new Error('Vetëm ai që e pagoi ose e regjistroi mund ta fshijë këtë shpenzim.');
+    // Fshijmë edhe foton e faturës (lejohet për ngarkuesin; përndryshe mbetet në storage pa u shfaqur)
+    await removeReceiptFile(data[0].receipt_url);
     return { success: true, message: 'Shpenzimi u fshi me sukses.' };
+  },
+
+  // 4b. Fotoja e faturës: `body` është JPEG i kompresuar (Blob në web, ArrayBuffer në mobil)
+  attachReceipt: async (expenseId, householdId, body) => {
+    const userId = await getCurrentUserId();
+    const path = `${householdId}/${userId}/${newUuid()}.jpg`;
+    const { error: uploadError } = await supabase.storage
+      .from(RECEIPTS_BUCKET)
+      .upload(path, body, { contentType: 'image/jpeg', upsert: false, cacheControl: '3600' });
+    if (uploadError) throw toAppError(uploadError, 'Dështoi ngarkimi i fotos së faturës.');
+
+    const { data: previous, error } = await supabase.rpc('set_expense_receipt', { p_expense_id: Number(expenseId), p_path: path });
+    if (error) {
+      await removeReceiptFile(path);
+      throw toAppError(error, 'Dështoi lidhja e faturës me shpenzimin.');
+    }
+    if (previous && previous !== path) await removeReceiptFile(previous);
+    return path;
+  },
+
+  removeReceipt: async (expenseId) => {
+    const { data: previous, error } = await supabase.rpc('set_expense_receipt', { p_expense_id: Number(expenseId), p_path: null });
+    if (error) throw toAppError(error, 'Dështoi heqja e faturës.');
+    await removeReceiptFile(previous);
   },
 
   // 5. "Laje Borxhin": regjistron që `fromUser` i dha `amount` € personit `toUser`

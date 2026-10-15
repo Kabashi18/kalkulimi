@@ -5,6 +5,7 @@ import SummaryCard from '../components/SummaryCard';
 import BalanceCard from '../components/BalanceCard';
 import ExpenseItem from '../components/ExpenseItem';
 import BottomNav from '../components/BottomNav';
+import ReceiptViewer from '../components/ReceiptViewer';
 import { expenseApi } from '../api/expenseApi';
 import { householdApi } from '../api/householdApi';
 import {
@@ -42,6 +43,8 @@ export default function DashboardScreen({ user, household, onNavigateToAdd, onNa
   const [tab, setTabState] = useState(lastTab);
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
+  // Fotoja e faturës e hapur në madhësi të plotë: { url, title } ose null
+  const [receiptToView, setReceiptToView] = useState(null);
   const setTab = (next) => {
     lastTab = next;
     setTabState(next);
@@ -247,7 +250,7 @@ export default function DashboardScreen({ user, household, onNavigateToAdd, onNa
               index === section.data.length - 1 ? 'rounded-b-2xl border-b' : ''
             } border-x`}
           >
-            <ExpenseItem expense={item} currentUserId={user?.id} onOptions={handleExpenseOptions} />
+            <ExpenseItem expense={item} currentUserId={user?.id} onOptions={handleExpenseOptions} onViewReceipt={setReceiptToView} />
           </View>
         )}
         contentContainerStyle={scrollPadding}
@@ -394,7 +397,7 @@ export default function DashboardScreen({ user, household, onNavigateToAdd, onNa
           <View className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800">
             {expenses.slice(0, 3).map((e, i) => (
               <View key={e.id} className={i > 0 ? 'border-t border-slate-100 dark:border-slate-800' : ''}>
-                <ExpenseItem expense={e} currentUserId={user?.id} onOptions={handleExpenseOptions} />
+                <ExpenseItem expense={e} currentUserId={user?.id} onOptions={handleExpenseOptions} onViewReceipt={setReceiptToView} />
               </View>
             ))}
           </View>
@@ -433,6 +436,9 @@ export default function DashboardScreen({ user, household, onNavigateToAdd, onNa
 
       {/* Shiriti i poshtëm: gjithmonë në fund të ekranit, përmbajtja lëviz sipër tij */}
       <BottomNav active={tab === 'settings' ? 'settings' : 'home'} onNavigate={setTab} onAdd={onNavigateToAdd} />
+
+      {/* Fotoja e faturës në madhësi të plotë */}
+      <ReceiptViewer url={receiptToView?.url} title={receiptToView?.title} onClose={() => setReceiptToView(null)} />
     </SafeAreaView>
   );
 }

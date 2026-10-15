@@ -788,3 +788,106 @@ $$;
 
 revoke execute on function public.set_my_avatar(text) from public, anon;
 grant execute on function public.set_my_avatar(text) to authenticated;
+
+-- ------------------------------------------------------------------------------
+-- 12. FOTOT E FATURAVE (RECEIPTS)
+-- ------------------------------------------------------------------------------
+-- Fotoja ruhet në bucket-in PRIVAT `receipts` si `{household_id}/{user_id}/{uuid}.jpg`
+-- (e zvogëluar nga aplikacioni: anija më e gjatë <= 1600px, JPEG). `expenses.receipt_url` mban
+-- RRUGËN e skedarit (jo një URL publike); aplikacioni krijon URL të përkohshme (signed URL) për ta shfaqur.
+-- Kush e sheh shpenzimin e sheh edhe faturën: të përbashkëtat banesa, personalet vetëm pronari.
+alter table public.expenses add column if not exists receipt_url text;
+comment on column public.expenses.receipt_url is
+  'Rruga e fotos së faturës në bucket-in privat receipts: {household_id}/{user_id}/{uuid}.jpg';
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('receipts', 'receipts', false, 3145728, array['image/jpeg'])
+on conflict (id) do update
+  set public = excluded.public,
+      file_size_limit = excluded.file_size_limit,
+      allowed_mime_types = excluded.allowed_mime_types;
+
+-- Ngarkimi: vetëm në dosjen e vet brenda banesës së vet (çdo foto merr emër të ri, pa upsert)
+drop policy if exists "receipts_insert_own_folder" on storage.objects;
+create policy "receipts_insert_own_folder" on storage.objects
+  for insert to authenticated
+  with check (
+    bucket_id = 'receipts'
+    and (storage.foldername(name))[1] = public.my_household_id()::text
+    and (storage.foldername(name))[2] = auth.uid()::text
+  );
+
+-- Leximi: ngarkuesi, ose kushdo që e sheh shpenzimin që i referohet fotos (RLS e `expenses` vlen edhe këtu)
+drop policy if exists "receipts_select_visible" on storage.objects;
+create policy "receipts_select_visible" on storage.objects
+  for select to authenticated
+  using (
+    bucket_id = 'receipts'
+    and (
+      (storage.foldername(name))[2] = auth.uid()::text
+      or exists (
+        select 1 from public.expenses e
+        where e.receipt_url = storage.objects.name
+          and e.household_id = public.my_household_id()
+          and (e.is_personal = false or e.paid_by = auth.uid())
+      )
+    )
+  );
+
+-- Fshirja: ngarkuesi, ose ai që mund ta ndryshojë shpenzimin (pagues / regjistrues)
+drop policy if exists "receipts_delete_editor" on storage.objects;
+create policy "receipts_delete_editor" on storage.objects
+  for delete to authenticated
+  using (
+    bucket_id = 'receipts'
+    and (
+      (storage.foldername(name))[2] = auth.uid()::text
+      or exists (
+        select 1 from public.expenses e
+        where e.receipt_url = storage.objects.name
+          and e.household_id = public.my_household_id()
+          and (e.paid_by = auth.uid() or e.created_by = auth.uid())
+      )
+    )
+  );
+
+-- Lidh (ose heq me p_path = null) foton e faturës me shpenzimin. Pranohet vetëm një foto që
+-- ekziston në dosjen e vetë përdoruesit brenda banesës, dhe vetëm nga paguesi / regjistruesi.
+-- Kthen rrugën e mëparshme, që aplikacioni ta fshijë skedarin e vjetër.
+create or replace function public.set_expense_receipt(p_expense_id bigint, p_path text)
+returns text
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  hh uuid := public.my_household_id();
+  previous text;
+begin
+  if auth.uid() is null then
+    raise exception 'Duhet të jeni të kyçur.';
+  end if;
+  if p_path is not null then
+    if p_path !~ ('^' || hh::text || '/' || auth.uid()::text || '/[0-9a-f-]{36}\.jpg$') then
+      raise exception 'Rrugë e pavlefshme për foton e faturës.';
+    end if;
+    if not exists (select 1 from storage.objects o where o.bucket_id = 'receipts' and o.name = p_path) then
+      raise exception 'Fotoja e faturës nuk u gjet. Provoni ta ngarkoni sërish.';
+    end if;
+  end if;
+
+  select receipt_url into previous
+  from public.expenses
+  where id = p_expense_id and household_id = hh and (paid_by = auth.uid() or created_by = auth.uid())
+  for update;
+  if not found then
+    raise exception 'Shpenzimi nuk u gjet ose nuk keni të drejtë ta ndryshoni.';
+  end if;
+
+  update public.expenses set receipt_url = p_path where id = p_expense_id;
+  return previous;
+end;
+$$;
+
+revoke execute on function public.set_expense_receipt(bigint, text) from public, anon;
+grant execute on function public.set_expense_receipt(bigint, text) to authenticated;

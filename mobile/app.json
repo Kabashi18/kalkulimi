@@ -23,6 +23,14 @@
         {
           "backgroundColor": "#ffffff"
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Kalkulimi ka nevojë për qasje te fotot për të bashkangjitur faturat e shpenzimeve.",
+          "cameraPermission": "Kalkulimi ka nevojë për kamerën për të fotografuar faturat e shpenzimeve.",
+          "microphonePermission": false
+        }
       ]
     ],
     "extra": {

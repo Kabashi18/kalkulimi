@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, SafeAreaView, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, SafeAreaView, KeyboardAvoidingView, Platform, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { expenseApi } from '../api/expenseApi';
 import { householdApi } from '../api/householdApi';
 import { isPersonalExpense, expenseDateOf, todayISO, computeSplitAmounts, formatDateSq, formatEuro, dayLabel } from '../utils/balances';
 import { C } from '../lib/theme';
+import { pickReceipt } from '../lib/receiptImage';
+import ReceiptViewer from '../components/ReceiptViewer';
 
 const CATEGORIES = [
   { id: 'Rrymë', name: 'Rrymë', icon: 'flash', color: '#d97706', bg: 'bg-amber-50 dark:bg-amber-950' },
@@ -71,6 +73,33 @@ export default function AddExpenseScreen({ currentUserId, household, expenseToEd
   const [detailsOpen, setDetailsOpen] = useState(isEditing && !!expenseToEdit?.split_mode && expenseToEdit.split_mode !== 'equal');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
+
+  // Fotoja e faturës: `receipt` = { uri, body } e kompresuar gati për ngarkim; `removeExistingReceipt` = hiqe të ruajturën
+  const [receipt, setReceipt] = useState(null);
+  const [removeExistingReceipt, setRemoveExistingReceipt] = useState(false);
+  const [receiptBusy, setReceiptBusy] = useState(false);
+  const [viewerOpen, setViewerOpen] = useState(false);
+  // Nëse shpenzimi u ruajt, por fatura dështoi, "Ruaj" i dytë e përditëson atë (pa dublikatë)
+  const [savedId, setSavedId] = useState(null);
+  const shownReceipt = receipt?.uri || (removeExistingReceipt ? null : expenseToEdit?.receipt_signed_url) || null;
+
+  const handlePickReceipt = async (source) => {
+    setErrorMsg(null);
+    try {
+      setReceiptBusy(true);
+      const picked = await pickReceipt(source);
+      if (picked) setReceipt(picked);
+    } catch (err) {
+      setErrorMsg(err.message);
+    } finally {
+      setReceiptBusy(false);
+    }
+  };
+
+  const handleRemoveReceipt = () => {
+    setReceipt(null);
+    if (expenseToEdit?.receipt_url) setRemoveExistingReceipt(true);
+  };
 
   useEffect(() => {
     householdApi
@@ -155,8 +184,23 @@ export default function AddExpenseScreen({ currentUserId, household, expenseToEd
     };
     try {
       setLoading(true);
-      if (isEditing) await expenseApi.updateExpense(expenseToEdit.id, payload);
-      else await expenseApi.createExpense(payload);
+      let expenseId = expenseToEdit?.id ?? savedId;
+      if (expenseId) {
+        await expenseApi.updateExpense(expenseId, payload);
+      } else {
+        const created = await expenseApi.createExpense(payload);
+        expenseId = created.data.id;
+        setSavedId(expenseId);
+      }
+
+      // Fatura: ngarkohet pasi shpenzimi ekziston (lidhja kërkon id-në e tij)
+      try {
+        if (receipt) await expenseApi.attachReceipt(expenseId, household.id, receipt.body);
+        else if (removeExistingReceipt && expenseToEdit?.receipt_url) await expenseApi.removeReceipt(expenseId);
+      } catch (err) {
+        setErrorMsg(`Shpenzimi u ruajt, por fatura jo: ${err.message} Shtypni "Ruaj" për të provuar sërish.`);
+        return;
+      }
       onSaved();
     } catch (err) {
       setErrorMsg(err.message);
@@ -381,8 +425,50 @@ export default function AddExpenseScreen({ currentUserId, household, expenseToEd
               </View>
             </View>
           )}
+
+          {/* 6. Fatura (opsionale): foto me kamerë ose nga galeria, e kompresuar para ngarkimit */}
+          <View className="mt-5">
+            <Text className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+              Fatura <Text className="font-normal text-slate-500 dark:text-slate-400">(opsionale)</Text>
+            </Text>
+            {shownReceipt ? (
+              <View className="flex-row items-center p-2.5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+                <TouchableOpacity onPress={() => setViewerOpen(true)} accessibilityLabel="Shiko faturën në madhësi të plotë">
+                  <Image source={{ uri: shownReceipt }} style={{ width: 64, height: 64, borderRadius: 12 }} resizeMode="cover" />
+                </TouchableOpacity>
+                <View className="flex-1 ml-3">
+                  <Text className="text-sm font-semibold text-slate-800 dark:text-slate-200">{receipt ? 'Foto e re e faturës' : 'Fatura e ruajtur'}</Text>
+                  <Text className="text-xs text-slate-500 dark:text-slate-400">
+                    {receipt ? `${Math.max(1, Math.round(receipt.body.byteLength / 1024))} KB pas kompresimit` : 'Prekni foton për ta parë'}
+                  </Text>
+                </View>
+                <TouchableOpacity onPress={handleRemoveReceipt} className="w-10 h-10 rounded-xl items-center justify-center" accessibilityLabel="Hiq faturën">
+                  <Ionicons name="trash-outline" size={18} color={C.danger} />
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View className="flex-row">
+                {[
+                  { source: 'camera', icon: 'camera-outline', label: 'Bëj foto' },
+                  { source: 'library', icon: 'images-outline', label: 'Nga galeria' }
+                ].map((opt, i) => (
+                  <TouchableOpacity
+                    key={opt.source}
+                    onPress={() => handlePickReceipt(opt.source)}
+                    disabled={receiptBusy || loading}
+                    className={`flex-1 flex-row items-center justify-center py-3.5 rounded-2xl border-2 border-dashed border-slate-300 dark:border-slate-700 ${i === 0 ? 'mr-2' : ''} ${receiptBusy ? 'opacity-60' : ''}`}
+                  >
+                    {receiptBusy ? <ActivityIndicator color={C.icon} /> : <Ionicons name={opt.icon} size={18} color={C.icon} />}
+                    <Text className="text-sm font-semibold text-slate-600 dark:text-slate-400 ml-2">{opt.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </View>
           <View style={{ height: 24 }} />
         </ScrollView>
+
+        <ReceiptViewer url={viewerOpen ? shownReceipt : null} title={title.trim() || 'Shpenzim i ri'} onClose={() => setViewerOpen(false)} />
 
         {/* 6. Butoni "Ruaj": gjithmonë i dukshëm poshtë */}
         <View className="px-5 py-4 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
