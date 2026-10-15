@@ -32,6 +32,7 @@ export default function ExpenseItem({ expense, currentUserId, payerAvatarUrl, on
   const effectStyle = EFFECT_STYLES[effect.type];
   const isPersonal = effect.type === 'personal';
   const customSplit = !isPersonal && expense.split_mode && expense.split_mode !== 'equal';
+  const canEdit = expense.can_edit ?? isPayer;
 
   // Mbylle menunë nëse klikohet jashtë
   useEffect(() => {
@@ -44,7 +45,7 @@ export default function ExpenseItem({ expense, currentUserId, payerAvatarUrl, on
   }, [showMenu]);
 
   return (
-    <div className="flex items-center px-3.5 py-3">
+    <div className="group relative flex items-center px-3.5 py-3">
       <div className={`relative w-10 h-10 rounded-xl flex items-center justify-center mr-3 shrink-0 ${bg}`}>
         <Icon className={`w-5 h-5 ${color}`} />
         {/* Kush e pagoi: fotoja (ose inicialet) e paguesit në qoshe, vetëm te shpenzimet e përbashkëta */}
@@ -93,9 +94,34 @@ export default function ExpenseItem({ expense, currentUserId, payerAvatarUrl, on
         )}
       </div>
 
-      {/* Ndrysho / Fshij: vetëm për paguesin ose regjistruesin */}
-      {(expense.can_edit ?? isPayer) ? (
-        <div className="relative shrink-0 ml-1" ref={menuRef}>
+      {/* Veprime të shpejta (pajisje me maus): Ndrysho / Fshij shfaqen me fade-in kur mausi kalon mbi
+          shpenzimin ose kur fokusohen me tastierë. Në ekranet me prekje mbetet menyja me 3 pika. */}
+      {canEdit && (
+        <div
+          className="absolute inset-y-1 right-1 hidden [@media(hover:hover)]:flex items-center gap-1 pl-10 pr-2 rounded-r-xl bg-gradient-to-r from-white/0 via-white via-30% to-white opacity-0 pointer-events-none transition-opacity duration-200 ease-out group-hover:opacity-100 group-hover:pointer-events-auto focus-within:opacity-100 focus-within:pointer-events-auto"
+        >
+          <button
+            onClick={() => onEdit?.(expense)}
+            className="w-9 h-9 rounded-xl bg-white border border-slate-200 shadow-sm text-slate-600 hover:text-indigo-700 hover:border-indigo-200 hover:bg-indigo-50 flex items-center justify-center transition-colors cursor-pointer"
+            aria-label={`Ndrysho ${expense.title}`}
+            title="Ndrysho"
+          >
+            <Edit2 className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => onDelete?.(expense)}
+            className="w-9 h-9 rounded-xl bg-white border border-slate-200 shadow-sm text-rose-600 hover:border-rose-200 hover:bg-rose-50 flex items-center justify-center transition-colors cursor-pointer"
+            aria-label={`Fshij ${expense.title}`}
+            title="Fshij"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Ndrysho / Fshij: vetëm për paguesin ose regjistruesin (menyja me 3 pika për ekranet me prekje) */}
+      {canEdit ? (
+        <div className="relative shrink-0 ml-1 [@media(hover:hover)]:hidden" ref={menuRef}>
           <button
             onClick={() => setShowMenu(!showMenu)}
             className="w-9 h-9 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500 hover:text-slate-700 cursor-pointer"
@@ -105,7 +131,7 @@ export default function ExpenseItem({ expense, currentUserId, payerAvatarUrl, on
             <MoreVertical className="w-4 h-4" />
           </button>
           {showMenu && (
-            <div className="absolute right-0 top-10 z-20 w-36 bg-white rounded-2xl shadow-xl border border-slate-100 py-1.5 animate-in fade-in zoom-in-95 duration-150">
+            <div className="absolute right-0 top-10 z-20 w-36 bg-white rounded-2xl shadow-xl border border-slate-100 py-1.5 motion-safe:animate-pop-in">
               <button
                 onClick={() => {
                   setShowMenu(false);
@@ -130,7 +156,7 @@ export default function ExpenseItem({ expense, currentUserId, payerAvatarUrl, on
           )}
         </div>
       ) : (
-        <div className="w-10 shrink-0" />
+        <div className="w-10 shrink-0 [@media(hover:hover)]:hidden" />
       )}
     </div>
   );
