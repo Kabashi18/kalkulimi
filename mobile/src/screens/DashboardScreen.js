@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, SectionList, ScrollView, RefreshControl, TouchableOpacity, ActivityIndicator, SafeAreaView, Alert, Share, AppState } from 'react-native';
+import { View, Text, SectionList, ScrollView, RefreshControl, TouchableOpacity, ActivityIndicator, SafeAreaView, Alert, Share, AppState, Switch } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import SummaryCard from '../components/SummaryCard';
 import BalanceCard from '../components/BalanceCard';
 import ExpenseItem from '../components/ExpenseItem';
-import ProfileMenu from '../components/ProfileMenu';
+import BottomNav from '../components/BottomNav';
 import { expenseApi } from '../api/expenseApi';
 import { householdApi } from '../api/householdApi';
 import {
@@ -26,12 +26,8 @@ const LIST_FILTERS = [
   { id: 'personal', label: 'Personale' }
 ];
 
-// Tab-et poshtë: Përmbledhja · Shpenzimet · Banesa
-const TABS = [
-  { id: 'home', label: 'Përmbledhja', icon: 'home' },
-  { id: 'expenses', label: 'Shpenzimet', icon: 'receipt' },
-  { id: 'household', label: 'Banesa', icon: 'people' }
-];
+// Shiriti i poshtëm (si në web): Dashboard · Shto · Cilësimet. Lista e plotë e shpenzimeve ('expenses')
+// hapet nga "Shiko të gjitha" dhe i përket Dashboard-it.
 // Tab-i i fundit ruhet sa është hapur app-i (Dashboard-i rikrijohet pas ruajtjes së një shpenzimi)
 let lastTab = 'home';
 
@@ -44,7 +40,6 @@ export default function DashboardScreen({ user, household, onNavigateToAdd, onNa
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [tab, setTabState] = useState(lastTab);
-  const [menuOpen, setMenuOpen] = useState(false);
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
   const setTab = (next) => {
@@ -228,7 +223,7 @@ export default function DashboardScreen({ user, household, onNavigateToAdd, onNa
     </View>
   );
 
-  const scrollPadding = { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 110 };
+  const scrollPadding = { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 32 };
 
   let body;
   if (loading) {
@@ -259,6 +254,10 @@ export default function DashboardScreen({ user, household, onNavigateToAdd, onNa
         refreshControl={refresh}
         ListHeaderComponent={
           <View>
+            <TouchableOpacity onPress={() => setTab('home')} className="flex-row items-center mb-3 -ml-1" accessibilityRole="button">
+              <Ionicons name="chevron-back" size={18} color={C.icon} />
+              <Text className="text-sm font-semibold text-slate-600 dark:text-slate-400">Dashboard</Text>
+            </TouchableOpacity>
             {errorBox}
             {monthCard}
             <View className="flex-row">
@@ -277,11 +276,41 @@ export default function DashboardScreen({ user, household, onNavigateToAdd, onNa
         ListEmptyComponent={emptyState}
       />
     );
-  } else if (tab === 'household') {
-    // BANESA: ftesa, anëtarët me bilancin tënd, largimi
+  } else if (tab === 'settings') {
+    // CILËSIMET: profili, preferencat, banesa me ftesën dhe anëtarët, largimi, dalja
+    const toggleStyle = { trackColor: { false: C.placeholderSoft, true: C.brand }, thumbColor: '#ffffff' };
     body = (
       <ScrollView contentContainerStyle={scrollPadding} refreshControl={refresh}>
         {errorBox}
+        <View className="flex-row items-center p-4 rounded-3xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 mb-4">
+          <View className="w-12 h-12 rounded-full bg-indigo-100 dark:bg-indigo-900 items-center justify-center mr-3">
+            <Text className="text-base font-black text-indigo-700 dark:text-indigo-300">{initials(user?.name)}</Text>
+          </View>
+          <View className="flex-1">
+            <Text numberOfLines={1} className="text-base font-bold text-slate-900 dark:text-slate-100">{user?.name || 'Profili'}</Text>
+            <Text numberOfLines={1} className="text-xs text-slate-500 dark:text-slate-400">{user?.email}</Text>
+          </View>
+        </View>
+
+        <Text className="text-base font-bold text-slate-900 dark:text-slate-100 mb-2.5">Preferencat</Text>
+        <View className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 mb-6">
+          {/* Tema e errët: opsion shtesë që përdoruesi e ndez vetë (parazgjedhja është e çelët) */}
+          <View className="flex-row items-center justify-between px-4 py-3">
+            <View className="flex-row items-center">
+              <Ionicons name="moon-outline" size={20} color={C.icon} />
+              <Text className="ml-3 text-base text-slate-700 dark:text-slate-300">Tema e errët</Text>
+            </View>
+            <Switch value={darkMode} onValueChange={(enabled) => onToggleDark?.(enabled)} {...toggleStyle} />
+          </View>
+          <View className="flex-row items-center justify-between px-4 py-3 border-t border-slate-100 dark:border-slate-800">
+            <View className="flex-row items-center">
+              <Ionicons name="notifications-outline" size={20} color={C.icon} />
+              <Text className="ml-3 text-base text-slate-700 dark:text-slate-300">Njoftimet push</Text>
+            </View>
+            {pushBusy ? <ActivityIndicator color={C.brand} /> : <Switch value={pushEnabled} onValueChange={handleTogglePush} {...toggleStyle} />}
+          </View>
+        </View>
+
         <View className="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 mb-4">
           <Text className="text-xs font-semibold text-slate-500 dark:text-slate-400">Banesa</Text>
           <Text className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-1">{household.name}</Text>
@@ -318,6 +347,11 @@ export default function DashboardScreen({ user, household, onNavigateToAdd, onNa
         <TouchableOpacity onPress={handleLeave} className="py-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex-row items-center justify-center">
           <Ionicons name="exit-outline" size={16} color={C.danger} />
           <Text className="text-sm font-semibold text-rose-600 dark:text-rose-400 ml-2">Largohu nga banesa</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={onLogout} className="mt-3 py-3 rounded-2xl bg-rose-50 dark:bg-rose-950 flex-row items-center justify-center" accessibilityRole="button">
+          <Ionicons name="log-out-outline" size={16} color={C.danger} />
+          <Text className="text-sm font-semibold text-rose-600 dark:text-rose-400 ml-2">Dil nga llogaria</Text>
         </TouchableOpacity>
       </ScrollView>
     );
@@ -374,7 +408,7 @@ export default function DashboardScreen({ user, household, onNavigateToAdd, onNa
       {/* Header */}
       <View className="px-5 pt-4 pb-3 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800">
         <View className="flex-row justify-between items-center">
-          <TouchableOpacity onPress={() => setTab('household')} className="flex-1 mr-3">
+          <TouchableOpacity onPress={() => setTab('settings')} className="flex-1 mr-3">
             <View className="flex-row items-center">
               <Ionicons name="people-outline" size={14} color={C.muted} />
               <Text numberOfLines={1} className="text-xs font-semibold text-slate-500 dark:text-slate-400 ml-1">
@@ -386,9 +420,9 @@ export default function DashboardScreen({ user, household, onNavigateToAdd, onNa
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            onPress={() => setMenuOpen(true)}
+            onPress={() => setTab('settings')}
             className="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900 items-center justify-center"
-            accessibilityLabel="Menuja e profilit"
+            accessibilityLabel="Cilësimet"
           >
             <Text className="text-sm font-black text-indigo-700 dark:text-indigo-300">{initials(user?.name)}</Text>
           </TouchableOpacity>
@@ -397,58 +431,8 @@ export default function DashboardScreen({ user, household, onNavigateToAdd, onNa
 
       <View className="flex-1">{body}</View>
 
-      {/* Butoni lundrues "+" (jo te tab-i "Banesa") */}
-      {tab !== 'household' && (
-        <TouchableOpacity
-          onPress={onNavigateToAdd}
-          className="absolute right-5 h-14 pl-4 pr-5 rounded-full bg-indigo-600 dark:bg-indigo-400 flex-row items-center"
-          style={{ bottom: 84, elevation: 6, shadowColor: C.brand, shadowOpacity: 0.3, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } }}
-          accessibilityLabel="Shto shpenzim"
-        >
-          <Ionicons name="add" size={22} color={C.onBrand} />
-          <Text className="text-white dark:text-slate-900 font-bold text-sm ml-1">Shto</Text>
-        </TouchableOpacity>
-      )}
-
-      {/* Menuja e profilit (dalja nuk është më buton i kuq në header) */}
-      <ProfileMenu
-        visible={menuOpen}
-        onClose={() => setMenuOpen(false)}
-        user={user}
-        darkMode={darkMode}
-        // Tema e errët: opsion shtesë që përdoruesi e ndez vetë (parazgjedhja është e çelët)
-        onToggleDark={(enabled) => onToggleDark?.(enabled)}
-        pushEnabled={pushEnabled}
-        pushBusy={pushBusy}
-        onTogglePush={handleTogglePush}
-        onOpenHousehold={() => {
-          setMenuOpen(false);
-          setTab('household');
-        }}
-        onLogout={() => {
-          setMenuOpen(false);
-          onLogout();
-        }}
-      />
-
-      {/* Shiriti i tab-eve poshtë */}
-      <View className="flex-row bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800">
-        {TABS.map((t) => {
-          const active = tab === t.id;
-          return (
-            <TouchableOpacity
-              key={t.id}
-              onPress={() => setTab(t.id)}
-              className="flex-1 items-center pt-2.5 pb-3"
-              accessibilityRole="tab"
-              accessibilityState={{ selected: active }}
-            >
-              <Ionicons name={active ? t.icon : `${t.icon}-outline`} size={22} color={active ? C.brand : C.muted} />
-              <Text className={`text-xs font-semibold mt-0.5 ${active ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-500 dark:text-slate-400'}`}>{t.label}</Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
+      {/* Shiriti i poshtëm: gjithmonë në fund të ekranit, përmbajtja lëviz sipër tij */}
+      <BottomNav active={tab === 'settings' ? 'settings' : 'home'} onNavigate={setTab} onAdd={onNavigateToAdd} />
     </SafeAreaView>
   );
 }

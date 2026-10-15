@@ -183,7 +183,9 @@ export default function App() {
     }
 
     return (
-      <div className="w-full max-w-md bg-white sm:rounded-3xl shadow-xl sm:border sm:border-slate-200/80 overflow-hidden flex flex-col min-h-screen sm:min-h-[850px] relative my-auto">
+      // Lartësi fikse (jo min-h): lëviz vetëm përmbajtja brenda, kështu shiriti i poshtëm mbetet gjithmonë në
+      // fund të ekranit. Në telefon app-i zë gjithë ekranin; në kompjuter shfaqet si "telefon" në mes.
+      <div className="fixed inset-0 sm:inset-auto w-full sm:max-w-md bg-white sm:rounded-3xl shadow-xl sm:border sm:border-slate-200/80 overflow-hidden flex flex-col h-[100dvh] sm:h-[min(850px,calc(100dvh-3rem))] sm:relative sm:my-auto">
         <main className="flex-1 flex flex-col min-h-0">
           {currentScreen === 'dashboard' ? (
             <DashboardScreen
