@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-export const initials = (name = '') =>
+const initials = (name = '') =>
   name.split(' ').filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join('') || '?';
 
 /**

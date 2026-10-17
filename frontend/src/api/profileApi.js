@@ -27,7 +27,7 @@ const loadImage = (file) =>
   });
 
 // Pret qendrën e fotos në katror dhe e zvogëlon në AVATAR_SIZE x AVATAR_SIZE
-export const resizeToSquareJpeg = async (file, size = AVATAR_SIZE, quality = 0.85) => {
+const resizeToSquareJpeg = async (file, size = AVATAR_SIZE, quality = 0.85) => {
   const img = await loadImage(file);
   const side = Math.min(img.naturalWidth, img.naturalHeight);
   const target = Math.min(size, side);

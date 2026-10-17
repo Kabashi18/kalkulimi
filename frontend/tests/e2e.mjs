@@ -157,7 +157,6 @@ try {
   console.log('❌ GABIM:', err.message);
 } finally {
   try {
-    const hhId = (await householdApi.getMyProfile().catch(() => null))?.household_id;
     for (const u of [B, A]) {
       await as(u);
       const prof = await householdApi.getMyProfile();

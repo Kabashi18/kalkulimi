@@ -249,7 +249,7 @@ export const computeSplitAmounts = (total, memberIds = [], mode = 'equal', value
 // ------------------------------------------------------------------------------
 // DATAT NË SHQIP (pa Intl: Hermes në Android shpesh nuk e ka gjuhën 'sq')
 // ------------------------------------------------------------------------------
-export const MONTHS_SQ = ['Janar', 'Shkurt', 'Mars', 'Prill', 'Maj', 'Qershor', 'Korrik', 'Gusht', 'Shtator', 'Tetor', 'Nëntor', 'Dhjetor'];
+const MONTHS_SQ = ['Janar', 'Shkurt', 'Mars', 'Prill', 'Maj', 'Qershor', 'Korrik', 'Gusht', 'Shtator', 'Tetor', 'Nëntor', 'Dhjetor'];
 const MONTHS_SQ_SHORT = ['Jan', 'Shk', 'Mar', 'Pri', 'Maj', 'Qer', 'Kor', 'Gus', 'Sht', 'Tet', 'Nën', 'Dhj'];
 const WEEKDAYS_SQ = ['E diel', 'E hënë', 'E martë', 'E mërkurë', 'E enjte', 'E premte', 'E shtunë'];
 
