@@ -100,7 +100,7 @@ function SettleModal({ row, onClose, onConfirm, loading, error }) {
 }
 
 // Kartela kryesore e Dashboard-it: bilanci neto + borxhet me secilin shok + "Laje borxhin"
-export default function BalanceSettlement({
+function BalanceSettlement({
   avatarOf = {},
   balance = {},
   settlements = [],
@@ -291,3 +291,5 @@ export default function BalanceSettlement({
     </section>
   );
 }
+
+export default React.memo(BalanceSettlement);

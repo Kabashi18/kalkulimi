@@ -12,7 +12,6 @@ import {
   computeBalancesForUser,
   computeGroupReport,
   computeMonthlyOutOfPocket,
-  computeCategoryBreakdown,
   monthLabel
 } from '../utils/balances';
 
@@ -63,10 +62,11 @@ const signReceiptUrls = async (paths) => {
   return Object.fromEntries(data.filter((d) => d.signedUrl && !d.error).map((d) => [d.path, d.signedUrl]));
 };
 
+// Sesioni lexohet lokalisht (pa kërkesë shtesë te Auth); siguria zbatohet nga RLS në databazë
 const getCurrentUserId = async () => {
-  const { data } = await supabase.auth.getUser();
-  if (!data?.user) throw new Error('Sesioni ka skaduar. Ju lutem kyçuni sërish.');
-  return data.user.id;
+  const { data } = await supabase.auth.getSession();
+  if (!data?.session?.user) throw new Error('Sesioni ka skaduar. Ju lutem kyçuni sërish.');
+  return data.session.user.id;
 };
 
 // Ngarkon gjithçka për banesën në paralel
@@ -155,8 +155,7 @@ export const expenseApi = {
     return {
       summary: {
         currentMonth: { totalPaidOutOfPocket: computeMonthlyOutOfPocket(userId, expenses) },
-        settlementBalance: computeBalancesForUser(userId, expenses, settlements, members),
-        categoryBreakdown: computeCategoryBreakdown(expenses)
+        settlementBalance: computeBalancesForUser(userId, expenses, settlements, members)
       },
       expenses: enrichedExpenses,
       settlements: settlements.map((s) => ({

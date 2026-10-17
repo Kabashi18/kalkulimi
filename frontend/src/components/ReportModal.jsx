@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Download, FileText, CheckCircle2, ArrowRight } from 'lucide-react';
 import { expenseApi } from '../api/expenseApi';
-import { generatePdfReport } from '../utils/generatePdfReport';
 import { formatEuro } from '../utils/balances';
 import Modal from './Modal';
 
@@ -10,6 +9,7 @@ export default function ReportModal({ isOpen, onClose, household }) {
   const [report, setReport] = useState(null);
   const [group, setGroup] = useState(null);
   const [error, setError] = useState(null);
+  const [pdfBusy, setPdfBusy] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -33,9 +33,17 @@ export default function ReportModal({ isOpen, onClose, household }) {
 
   if (!isOpen) return null;
 
-  const handleDownloadPdf = () => {
-    if (report) {
+  // jsPDF (+ html2canvas) ngarkohet vetëm kur klikohet "Shkarko PDF", jo në hapjen e parë të faqes
+  const handleDownloadPdf = async () => {
+    if (!report || pdfBusy) return;
+    try {
+      setPdfBusy(true);
+      const { generatePdfReport } = await import('../utils/generatePdfReport');
       generatePdfReport(report, group?.name || 'Banesa');
+    } catch {
+      setError('Dështoi gjenerimi i PDF-së. Kontrolloni internetin dhe provoni sërish.');
+    } finally {
+      setPdfBusy(false);
     }
   };
 
@@ -189,11 +197,15 @@ export default function ReportModal({ isOpen, onClose, household }) {
 
           <button
             onClick={handleDownloadPdf}
-            disabled={loading || !report}
+            disabled={loading || !report || pdfBusy}
             className="py-3 rounded-2xl bg-orange-500 hover:bg-orange-600 text-white text-sm font-bold flex items-center justify-center space-x-1.5 shadow-md shadow-orange-500/30 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
           >
-            <Download className="w-4 h-4" />
-            <span>Shkarko PDF</span>
+            {pdfBusy ? (
+              <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <Download className="w-4 h-4" />
+            )}
+            <span>{pdfBusy ? 'Duke përgatitur...' : 'Shkarko PDF'}</span>
           </button>
         </div>
     </Modal>

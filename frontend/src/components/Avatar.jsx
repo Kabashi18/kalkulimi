@@ -7,7 +7,7 @@ const initials = (name = '') =>
  * Fotoja e profilit; nëse mungon ose nuk ngarkohet, shfaqen inicialet e emrit.
  * `className` jep madhësinë dhe tekstin (p.sh. "w-10 h-10 text-sm"); `tone` ngjyrën e inicialeve.
  */
-export default function Avatar({ name, url, className = 'w-10 h-10 text-sm', tone = 'bg-slate-100 text-slate-700' }) {
+function Avatar({ name, url, className = 'w-10 h-10 text-sm', tone = 'bg-slate-100 text-slate-700' }) {
   const [broken, setBroken] = useState(false);
   useEffect(() => setBroken(false), [url]);
 
@@ -20,3 +20,5 @@ export default function Avatar({ name, url, className = 'w-10 h-10 text-sm', ton
     </div>
   );
 }
+
+export default React.memo(Avatar);

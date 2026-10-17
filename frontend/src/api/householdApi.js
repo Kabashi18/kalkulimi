@@ -7,14 +7,13 @@ import { supabase, toAppError } from '../lib/supabaseClient';
 export const householdApi = {
   // Profili i përdoruesit të kyçur bashkë me banesën e tij (nëse ka)
   getMyProfile: async () => {
-    const { data: auth } = await supabase.auth.getUser();
-    const userId = auth?.user?.id;
+    const { data: auth } = await supabase.auth.getSession();
+    const userId = auth?.session?.user?.id;
     if (!userId) return null;
 
     const { data, error } = await supabase
       .from('profiles')
-      // `*` që aplikacioni të mos prishet nëse kolona `avatar_url` (schema.sql seksioni 11) s'është shtuar ende
-      .select('*, household:households(id, name, code)')
+      .select('id, name, email, household_id, avatar_url, household:households(id, name, code)')
       .eq('id', userId)
       .maybeSingle();
     if (error) throw toAppError(error, 'Dështoi ngarkimi i profilit.');
@@ -45,7 +44,7 @@ export const householdApi = {
   getMembers: async (householdId) => {
     const { data, error } = await supabase
       .from('profiles')
-      .select('*')
+      .select('id, name, email, avatar_url')
       .eq('household_id', householdId)
       .order('created_at', { ascending: true });
     if (error) throw toAppError(error, 'Dështoi ngarkimi i anëtarëve.');

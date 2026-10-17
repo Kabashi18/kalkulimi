@@ -27,7 +27,7 @@ function Tab({ isActive, onClick, Icon, label }) {
 
 // `hidden`: gjatë scroll-it në mes të faqes shiriti largohet poshtë (bashkë me butonin "+" të ngritur)
 // dhe rishfaqet në krye ose në fund të faqes (shih DashboardScreen).
-export default function Navigation({ active, onNavigate, onAdd, hidden = false }) {
+function Navigation({ active, onNavigate, onAdd, hidden = false }) {
   return (
     <nav
       className={`absolute bottom-0 inset-x-0 z-30 transition-all duration-300 ease-out ${
@@ -60,3 +60,5 @@ export default function Navigation({ active, onNavigate, onAdd, hidden = false }
     </nav>
   );
 }
+
+export default React.memo(Navigation);

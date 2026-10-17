@@ -103,15 +103,16 @@ export default function App() {
     setCurrentScreen('dashboard');
   };
 
-  const handleNavigateToAdd = () => {
+  // Të qëndrueshme: i kalohen çdo ExpenseItem-i (React.memo) në Dashboard
+  const handleNavigateToAdd = useCallback(() => {
     setExpenseToEdit(null);
     setCurrentScreen('addExpense');
-  };
+  }, []);
 
-  const handleNavigateToEdit = (expense) => {
+  const handleNavigateToEdit = useCallback((expense) => {
     setExpenseToEdit(expense);
     setCurrentScreen('addExpense');
-  };
+  }, []);
 
   const handleBackToDashboard = () => {
     setExpenseToEdit(null);

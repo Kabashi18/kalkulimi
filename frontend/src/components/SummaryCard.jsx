@@ -4,7 +4,7 @@ import { formatEuro, monthLabel } from '../utils/balances';
 
 // Kartela e muajit: zgjedhësi ◀ muaji ▶ + sa ke paguar nga xhepi (personale + të përbashkëta).
 // Borxhet (gjithmonë totale) shfaqen te BalanceSettlement.
-export default function SummaryCard({ month, monthlyTotal = 0, isCurrentMonth = true, onPrev, onNext, onToday }) {
+function SummaryCard({ month, monthlyTotal = 0, isCurrentMonth = true, onPrev, onNext, onToday }) {
   const navButton =
     'w-9 h-9 rounded-full flex items-center justify-center text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer disabled:cursor-default';
 
@@ -35,3 +35,5 @@ export default function SummaryCard({ month, monthlyTotal = 0, isCurrentMonth = 
     </div>
   );
 }
+
+export default React.memo(SummaryCard);

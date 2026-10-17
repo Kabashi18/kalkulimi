@@ -15,6 +15,7 @@ import { householdApi } from '../api/householdApi';
 import { isDarkTheme, setDarkTheme } from '../lib/theme';
 import { pushApi } from '../api/pushApi';
 import { profileApi } from '../api/profileApi';
+import { useToast } from '../hooks/useToast';
 import {
   isPersonalExpense,
   isInMonth,
@@ -43,16 +44,16 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
-  const [toast, setToast] = useState(null); // { message, type: 'success' | 'error' }
+  const [toast, showToast] = useToast();
   const [tab, setTabState] = useState(lastTab);
   const contentRef = useRef(null);
-  const setTab = (next) => {
+  const setTab = useCallback((next) => {
     lastTab = next;
     setTabState(next);
     // Çdo ndërrim tab-i (edhe klikimi i tab-it aktual) fillon nga kreu i kontejnerit të përmbajtjes
     contentRef.current?.scrollTo({ top: 0, behavior: 'instant' });
     window.scrollTo({ top: 0, behavior: 'instant' });
-  };
+  }, []);
 
   // Shiriti i poshtëm (web): duket në krye të faqes, fshihet gjatë scroll-it teposhtë dhe rishfaqet
   // i fiksuar kur arrihet fundi. Kur përmbajtja nuk ka scroll, mbetet gjithmonë i dukshëm.
@@ -68,7 +69,6 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
   const [copied, setCopied] = useState(false);
-  const toastTimer = useRef(null);
   const avatarInputRef = useRef(null);
   const [avatarBusy, setAvatarBusy] = useState(false);
 
@@ -86,6 +86,8 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
   // Fotoja e faturës e hapur në madhësi të plotë: { url, title } ose null
   const [receiptToView, setReceiptToView] = useState(null);
   const closeReceipt = useCallback(() => setReceiptToView(null), []);
+  const openReport = useCallback(() => setIsReportModalOpen(true), []);
+  const closeReport = useCallback(() => setIsReportModalOpen(false), []);
 
   const currentUserId = user?.id;
   const activeUserName = user?.name || 'Përdorues';
@@ -102,14 +104,20 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
   const monthExpenses = useMemo(() => expenses.filter((e) => isInMonth(e, month)), [expenses, month]);
   const monthlyTotal = useMemo(() => computeMonthlyOutOfPocket(currentUserId, expenses, month), [currentUserId, expenses, month]);
   const categoryData = useMemo(() => computeCategoryBreakdown(monthExpenses), [monthExpenses]);
-  const filterCounts = {
-    all: monthExpenses.length,
-    shared: monthExpenses.filter((e) => !isPersonalExpense(e)).length,
-    personal: monthExpenses.filter((e) => isPersonalExpense(e)).length
-  };
-  const listedExpenses = monthExpenses.filter((e) =>
-    listFilter === 'all' ? true : listFilter === 'personal' ? isPersonalExpense(e) : !isPersonalExpense(e)
+  const filterCounts = useMemo(() => {
+    const personal = monthExpenses.filter(isPersonalExpense).length;
+    return { all: monthExpenses.length, shared: monthExpenses.length - personal, personal };
+  }, [monthExpenses]);
+  const listedExpenses = useMemo(
+    () =>
+      listFilter === 'all'
+        ? monthExpenses
+        : monthExpenses.filter((e) => (listFilter === 'personal') === isPersonalExpense(e)),
+    [monthExpenses, listFilter]
   );
+  const prevMonth = useCallback(() => setMonth((m) => addMonths(m, -1)), []);
+  const nextMonth = useCallback(() => setMonth((m) => addMonths(m, 1)), []);
+  const thisMonth = useCallback(() => setMonth(startOfMonth()), []);
 
   // Lista e grupuar sipas ditës: [{ label: 'Sot', items: [...] }, ...]
   const groupedExpenses = useMemo(() => {
@@ -122,12 +130,6 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
     });
     return groups;
   }, [listedExpenses]);
-
-  const showToast = (message, type = 'success') => {
-    setToast({ message, type });
-    clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => setToast(null), type === 'error' ? 5000 : 3000);
-  };
 
   const loadData = useCallback(async () => {
     try {
@@ -163,7 +165,6 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
     return () => {
       unsubscribe();
       document.removeEventListener('visibilitychange', onVisible);
-      clearTimeout(toastTimer.current);
     };
   }, [household.id, loadData]);
 
@@ -191,37 +192,31 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
     }
   };
 
-  // Fotoja e profilit: zvogëlohet në 400x400, ngarkohet te Storage dhe ruhet te profili
-  const handleAvatarFile = async (e) => {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file) return;
+  // Ngarkimi / heqja e fotos së profilit: e njëjta rrjedhë (busy -> toast -> rifreskim)
+  const updateAvatar = async (action, successMessage, errorMessage) => {
     try {
       setAvatarBusy(true);
-      await profileApi.uploadAvatar(currentUserId, file);
-      showToast('Fotoja e profilit u përditësua!');
+      await action();
+      showToast(successMessage);
       onProfileChanged?.();
       loadData();
     } catch (err) {
-      showToast(err?.message || 'Dështoi ngarkimi i fotos.', 'error');
+      showToast(err?.message || errorMessage, 'error');
     } finally {
       setAvatarBusy(false);
     }
   };
 
-  const handleRemoveAvatar = async () => {
-    try {
-      setAvatarBusy(true);
-      await profileApi.removeAvatar(currentUserId);
-      showToast('Fotoja e profilit u hoq.');
-      onProfileChanged?.();
-      loadData();
-    } catch (err) {
-      showToast(err?.message || 'Dështoi heqja e fotos.', 'error');
-    } finally {
-      setAvatarBusy(false);
-    }
+  // Fotoja e profilit: zvogëlohet në 400x400, ngarkohet te Storage dhe ruhet te profili
+  const handleAvatarFile = (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    updateAvatar(() => profileApi.uploadAvatar(currentUserId, file), 'Fotoja e profilit u përditësua!', 'Dështoi ngarkimi i fotos.');
   };
+
+  const handleRemoveAvatar = () =>
+    updateAvatar(() => profileApi.removeAvatar(currentUserId), 'Fotoja e profilit u hoq.', 'Dështoi heqja e fotos.');
 
   const handleCopyCode = async () => {
     try {
@@ -265,10 +260,29 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
   };
 
   // Trajtimi i fshirjes
-  const handleDeleteClick = (expense) => {
+  const handleDeleteClick = useCallback((expense) => {
     setExpenseToDelete(expense);
     setIsDeleteModalOpen(true);
-  };
+  }, []);
+
+  // Callback-e të qëndrueshme: përbërësit me React.memo nuk rivizatohen gjatë scroll-it / ndërrimit të tab-ave
+  const handleSettlementChanged = useCallback((msg) => {
+    showToast(msg);
+    loadData();
+  }, [showToast, loadData]);
+  const showError = useCallback((msg) => showToast(msg, 'error'), [showToast]);
+
+  const renderExpense = (expense) => (
+    <ExpenseItem
+      key={expense.id}
+      expense={expense}
+      payerAvatarUrl={avatarOf[expense.paid_by_user_id]}
+      currentUserId={currentUserId}
+      onEdit={onNavigateToEdit}
+      onDelete={handleDeleteClick}
+      onViewReceipt={setReceiptToView}
+    />
+  );
 
   const handleConfirmDelete = async (id) => {
     try {
@@ -316,9 +330,9 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
       month={month}
       monthlyTotal={monthlyTotal}
       isCurrentMonth={isCurrentMonth}
-      onPrev={() => setMonth((m) => addMonths(m, -1))}
-      onNext={() => setMonth((m) => addMonths(m, 1))}
-      onToday={() => setMonth(startOfMonth())}
+      onPrev={prevMonth}
+      onNext={nextMonth}
+      onToday={thisMonth}
     />
   );
 
@@ -416,15 +430,12 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
             <BalanceSettlement
               avatarOf={avatarOf}
               balance={data?.summary?.settlementBalance}
-              settlements={data?.settlements || []}
+              settlements={data?.settlements}
               currentUserId={currentUserId}
               householdId={household.id}
-              onChanged={(msg) => {
-                showToast(msg);
-                loadData();
-              }}
-              onDownloadReport={() => setIsReportModalOpen(true)}
-              onError={(msg) => showToast(msg, 'error')}
+              onChanged={handleSettlementChanged}
+              onDownloadReport={openReport}
+              onError={showError}
             />
 
             {/* Ftesa: kur je ende i vetëm në banesë */}
@@ -456,9 +467,7 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
               emptyState
             ) : (
               <div className="bg-white rounded-2xl border border-slate-100 shadow-sm divide-y divide-slate-100 mb-6">
-                {expenses.slice(0, 3).map((expense) => (
-                  <ExpenseItem key={expense.id} expense={expense} payerAvatarUrl={avatarOf[expense.paid_by_user_id]} currentUserId={currentUserId} onEdit={onNavigateToEdit} onDelete={handleDeleteClick} onViewReceipt={setReceiptToView} />
-                ))}
+                {expenses.slice(0, 3).map(renderExpense)}
               </div>
             )}
 
@@ -496,9 +505,7 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
                   <section key={group.label} className="mb-4">
                     <h3 className="text-xs font-semibold text-slate-500 mb-1.5 px-1">{group.label}</h3>
                     <div className="bg-white rounded-2xl border border-slate-100 divide-y divide-slate-100">
-                      {group.items.map((expense) => (
-                        <ExpenseItem key={expense.id} expense={expense} payerAvatarUrl={avatarOf[expense.paid_by_user_id]} currentUserId={currentUserId} onEdit={onNavigateToEdit} onDelete={handleDeleteClick} onViewReceipt={setReceiptToView} />
-                      ))}
+                      {group.items.map(renderExpense)}
                     </div>
                   </section>
                 ))}
@@ -692,7 +699,7 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
       </ConfirmDialog>
 
       {/* Modali i Gjenerimit të Raportit në PDF */}
-      <ReportModal isOpen={isReportModalOpen} onClose={() => setIsReportModalOpen(false)} household={household} />
+      <ReportModal isOpen={isReportModalOpen} onClose={closeReport} household={household} />
 
       {/* Fotoja e faturës në madhësi të plotë */}
       <ReceiptViewer url={receiptToView?.url} title={receiptToView?.title} onClose={closeReceipt} />

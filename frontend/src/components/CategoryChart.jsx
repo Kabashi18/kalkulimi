@@ -15,7 +15,7 @@ const CATEGORY_COLORS = {
 const DEFAULT_COLOR = '#94a3b8';
 
 // Shirita horizontalë: krahasohen më lehtë se një pie chart dhe shuma lexohet direkt
-export default function CategoryChart({ categoryData = [] }) {
+function CategoryChart({ categoryData = [] }) {
   const rows = (categoryData || [])
     .map((item) => ({
       name: item.category || 'Të tjera',
@@ -52,3 +52,5 @@ export default function CategoryChart({ categoryData = [] }) {
     </div>
   );
 }
+
+export default React.memo(CategoryChart);

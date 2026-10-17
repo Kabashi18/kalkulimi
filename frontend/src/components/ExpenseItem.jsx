@@ -22,7 +22,7 @@ const EFFECT_STYLES = {
   none: { label: 'nuk të përfshin', color: 'text-slate-500' }
 };
 
-export default function ExpenseItem({ expense, currentUserId, payerAvatarUrl, onEdit, onDelete, onViewReceipt }) {
+function ExpenseItem({ expense, currentUserId, payerAvatarUrl, onEdit, onDelete, onViewReceipt }) {
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef(null);
 
@@ -161,3 +161,5 @@ export default function ExpenseItem({ expense, currentUserId, payerAvatarUrl, on
     </div>
   );
 }
+
+export default React.memo(ExpenseItem);
