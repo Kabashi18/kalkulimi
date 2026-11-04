@@ -58,7 +58,12 @@ export default function DashboardScreen({ user, household, onNavigateToAdd, onNa
   const [listFilter, setListFilter] = useState('all');
   const isCurrentMonth = month.getTime() === startOfMonth().getTime();
   const monthExpenses = useMemo(() => expenses.filter((e) => isInMonth(e, month)), [expenses, month]);
-  const monthlyTotal = useMemo(() => computeMonthlyOutOfPocket(user?.id, expenses, month), [user?.id, expenses, month]);
+  const settlements = useMemo(() => data?.settlements || [], [data]);
+  // Përfshin edhe pagesat e borxheve të muajit: përditësohet sapo `data` rifreskohet (loadData / realtime)
+  const monthlyTotal = useMemo(
+    () => computeMonthlyOutOfPocket(user?.id, expenses, month, settlements),
+    [user?.id, expenses, month, settlements]
+  );
   const listedExpenses = monthExpenses.filter((e) =>
     listFilter === 'all' ? true : listFilter === 'personal' ? isPersonalExpense(e) : !isPersonalExpense(e)
   );

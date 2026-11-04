@@ -158,16 +158,26 @@ export const expenseDateOf = (expense) => {
 export const todayISO = (now = new Date()) =>
   `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
-/** Totali i paguar nga xhepi i përdoruesit në muajin aktual (personale + të përbashkëta). */
-export const computeMonthlyOutOfPocket = (userId, expenses = [], now = new Date()) => {
-  const cents = expenses
-    .filter((e) => {
-      const d = expenseDateOf(e);
-      if (e.paid_by !== userId || !d) return false;
-      return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
-    })
+/**
+ * Totali i paguar nga xhepi i përdoruesit në muajin e dhënë (personale + të përbashkëta),
+ * duke llogaritur edhe pagesat e borxheve ("Laje Borxhin") sipas datës së regjistrimit:
+ *   + pagesat që përdoruesi ua dha të tjerëve (dolën nga xhepi i tij)
+ *   − pagesat që përdoruesi i mori (i u kthyen paratë që i kishte paguar më parë)
+ * Kështu shuma e "xhepave" të të gjithë anëtarëve = shpenzimet reale (pa numërim të dyfishtë).
+ */
+export const computeMonthlyOutOfPocket = (userId, expenses = [], now = new Date(), settlements = []) => {
+  const sameMonth = (d) => !!d && d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+  const expenseCents = expenses
+    .filter((e) => e.paid_by === userId && sameMonth(expenseDateOf(e)))
     .reduce((sum, e) => sum + toCents(e.total_amount), 0);
-  return toEuro(cents);
+  const settlementCents = settlements
+    .filter((s) => s.created_at && sameMonth(new Date(s.created_at)))
+    .reduce((sum, s) => {
+      if (s.from_user === userId) return sum + toCents(s.amount);
+      if (s.to_user === userId) return sum - toCents(s.amount);
+      return sum;
+    }, 0);
+  return toEuro(expenseCents + settlementCents);
 };
 
 /** Shpërndarja sipas kategorive për grafikun. */

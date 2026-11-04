@@ -155,6 +155,32 @@ describe('datat dhe muajt', () => {
     expect(computeMonthlyOutOfPocket('A', expenses, new Date(2026, 8, 1))).toBe(60);
   });
 
+  it('totali nga xhepi përfshin pagesat e borxheve të muajit (pa numërim të dyfishtë)', () => {
+    // B pagoi qiranë 600 € për A, B, C; A ia ktheu B-së 200 € në tetor, C në nëntor
+    const expenses = [
+      {
+        paid_by: 'B',
+        total_amount: 600,
+        expense_date: '2026-10-01',
+        splits: [{ user_id: 'A', amount_owed: 200 }, { user_id: 'B', amount_owed: 200 }, { user_id: 'C', amount_owed: 200 }]
+      }
+    ];
+    const settlements = [
+      { from_user: 'A', to_user: 'B', amount: 200, created_at: '2026-10-05T12:00:00Z' },
+      { from_user: 'C', to_user: 'B', amount: 200, created_at: '2026-11-03T12:00:00Z' }
+    ];
+    const oct = new Date(2026, 9, 15);
+    expect(computeMonthlyOutOfPocket('A', expenses, oct, settlements)).toBe(200);
+    expect(computeMonthlyOutOfPocket('B', expenses, oct, settlements)).toBe(400);
+    expect(computeMonthlyOutOfPocket('C', expenses, oct, settlements)).toBe(0);
+    // Shuma e xhepave në tetor = shpenzimi real minus borxhi ende i pakthyer i C-së
+    const nov = new Date(2026, 10, 15);
+    expect(computeMonthlyOutOfPocket('C', expenses, nov, settlements)).toBe(200);
+    expect(computeMonthlyOutOfPocket('B', expenses, nov, settlements)).toBe(-200);
+    // Pa pagesa sjell sjelljen e vjetër
+    expect(computeMonthlyOutOfPocket('B', expenses, oct)).toBe(600);
+  });
+
   it('isInMonth, monthLabel, formatDateSq, addMonths, todayISO', () => {
     const oct = new Date(2026, 9, 1);
     expect(isInMonth({ expense_date: '2026-10-31' }, oct)).toBe(true);

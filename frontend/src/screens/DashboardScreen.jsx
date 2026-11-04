@@ -102,7 +102,12 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
   const [listFilter, setListFilter] = useState('all');
   const isCurrentMonth = month.getTime() === startOfMonth().getTime();
   const monthExpenses = useMemo(() => expenses.filter((e) => isInMonth(e, month)), [expenses, month]);
-  const monthlyTotal = useMemo(() => computeMonthlyOutOfPocket(currentUserId, expenses, month), [currentUserId, expenses, month]);
+  const settlements = useMemo(() => data?.settlements || [], [data]);
+  // Përfshin edhe pagesat e borxheve të muajit: përditësohet sapo `data` rifreskohet (loadData / realtime)
+  const monthlyTotal = useMemo(
+    () => computeMonthlyOutOfPocket(currentUserId, expenses, month, settlements),
+    [currentUserId, expenses, month, settlements]
+  );
   const categoryData = useMemo(() => computeCategoryBreakdown(monthExpenses), [monthExpenses]);
   const filterCounts = useMemo(() => {
     const personal = monthExpenses.filter(isPersonalExpense).length;

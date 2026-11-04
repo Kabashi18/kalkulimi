@@ -154,7 +154,7 @@ export const expenseApi = {
 
     return {
       summary: {
-        currentMonth: { totalPaidOutOfPocket: computeMonthlyOutOfPocket(userId, expenses) },
+        currentMonth: { totalPaidOutOfPocket: computeMonthlyOutOfPocket(userId, expenses, new Date(), settlements) },
         settlementBalance: computeBalancesForUser(userId, expenses, settlements, members)
       },
       expenses: enrichedExpenses,
