@@ -17,14 +17,12 @@ kalkulimi/
 │   ├── public/        # manifest + service worker (njoftimet push)
 │   ├── tests/e2e.mjs  # testi end-to-end kundrejt Supabase-it real
 │   └── src/
-│       ├── api/       # authApi, householdApi, expenseApi (+ kopje në mobile), profileApi, pushApi
+│       ├── api/       # authApi, householdApi, expenseApi, profileApi, pushApi
 │       ├── lib/       # supabaseClient, tema, kompresimi i fotove të faturave
 │       ├── hooks/     # useToast
 │       ├── utils/     # balances.js (llogaritja e borxheve, funksione të pastra), generatePdfReport.js
 │       ├── screens/   # Login, Register, ForgotPassword, ResetPassword, HouseholdSetup, Dashboard, AddExpense
 │       └── components/
-├── mobile/            # App mobil (Expo / React Native), i njëjti Supabase
-├── scripts/           # check-shared-copies.mjs: kopjet web/mobil janë identike
 └── supabase/
     ├── schema.sql     # Tabelat, RLS, funksionet RPC, realtime
     ├── functions/     # send-push (Edge Function për njoftimet)
@@ -35,9 +33,7 @@ kalkulimi/
 
 - **Të dhënat**: gjithçka kalon përmes `src/api/*` → Supabase; siguria zbatohet në databazë (RLS). Queries marrin vetëm
   kolonat e nevojshme, dhe Dashboard-i rifreskohet vetë përmes Realtime.
-- **Logjika e pastër** (`utils/balances.js`) është e ndarë nga UI-ja dhe mbulohet nga testet Vitest. `api/authApi`,
-  `api/householdApi`, `api/expenseApi` dhe `utils/balances.js` kanë kopje identike në `mobile/src`: ndryshoni versionin
-  web dhe kopjojeni në mobil (`npm run check:copies` e kontrollon).
+- **Logjika e pastër** (`utils/balances.js`) është e ndarë nga UI-ja dhe mbulohet nga testet Vitest.
 - **Ngarkimi**: `App.jsx` ngarkohet dinamikisht nga `main.jsx`; jsPDF (raporti PDF) ngarkohet vetëm kur klikohet
   "Shkarko PDF", jo në hapjen e parë të faqes.
 - **Render-at**: përbërësit e listës dhe kartelat e Dashboard-it janë me `React.memo`, me callback-e të qëndrueshme
@@ -53,17 +49,15 @@ kalkulimi/
    npm install
    npm run dev
    ```
-3. Mobil: shikoni [mobile/README.md](mobile/README.md).
 
 ## Testet
 
 ```bash
 npm test               # Vitest: logjika e borxheve, ndarjeve, përqindjeve dhe datave (frontend/src/utils)
-npm run check:copies   # kopjet në mobile/src janë identike me frontend/src
 npm run test:e2e       # test end-to-end kundrejt Supabase-it real (krijon 2 llogari testuese)
 ```
 
-GitHub Actions (`.github/workflows/ci.yml`) ekzekuton `check:copies`, testet dhe build-in në çdo push.
+GitHub Actions (`.github/workflows/ci.yml`) ekzekuton testet dhe build-in në çdo push.
 Testi E2E nuk ekzekutohet në CI, sepse krijon llogari në projektin real.
 
 ## Deploy (Vercel)

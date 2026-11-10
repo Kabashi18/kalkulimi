@@ -23,10 +23,6 @@ jobs:
       - name: Instalo varësitë
         run: npm ci
 
-      - name: Kopjet web/mobil janë të sinkronizuara
-        working-directory: .
-        run: node scripts/check-shared-copies.mjs
-
       - name: Testet e logjikës (Vitest)
         run: npm test
 

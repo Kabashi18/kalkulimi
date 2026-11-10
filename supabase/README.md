@@ -65,8 +65,6 @@ Rrjedha: `schema.sql` (triggerët + `pg_net`) → Edge Function [`send-push`](fu
 5. Përdoruesi i aktivizon te tab-i **Cilësimet** (rrotëza në shiritin poshtë) → **Preferencat** → **Njoftimet push**. Në iPhone (iOS 16.4+) njoftimet punojnë vetëm
    kur faqja është shtuar te **Home Screen** dhe hapet prej andej.
 
-**Aplikacioni mobil** merr të njëjtat njoftime përmes Expo Push (tabela `user_expo_push_tokens`). Konfigurimi është te [`mobile/README.md`](../mobile/README.md#njoftimet-push).
-
 Për diagnostikim: **Edge Functions → send-push → Logs**, ose `select * from net._http_response order by created desc limit 10;`.
 
 ## Pastrimi i të dhënave testuese (para nisjes)
