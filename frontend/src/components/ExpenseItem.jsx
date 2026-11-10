@@ -3,7 +3,7 @@ import { Lightbulb, Home, Utensils, Wifi, Droplets, Receipt, Sparkles, MoreVerti
 import { expenseEffectFor, formatEuro } from '../utils/balances';
 import Avatar from './Avatar';
 
-const getCategoryDetails = (category = '') => {
+export const getCategoryDetails = (category = '') => {
   const cat = category.toLowerCase();
   if (cat.includes('rrym') || cat.includes('energji') || cat.includes('drita')) return { Icon: Lightbulb, color: 'text-amber-600', bg: 'bg-amber-50' };
   if (cat.includes('qira') || cat.includes('banes')) return { Icon: Home, color: 'text-indigo-600', bg: 'bg-indigo-50' };

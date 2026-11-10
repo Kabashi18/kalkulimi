@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { AlertTriangle, Receipt, CheckCircle, LogOut, Copy, Check, Share2, DoorOpen, UserPlus, Moon, Bell, ChevronRight, ChevronLeft, Camera } from 'lucide-react';
+import { AlertTriangle, Receipt, CheckCircle, LogOut, Copy, Check, Share2, DoorOpen, UserPlus, Moon, Bell, ChevronRight, ChevronLeft, Camera, Search, Coffee } from 'lucide-react';
 import SummaryCard from '../components/SummaryCard';
 import BalanceSettlement from '../components/BalanceSettlement';
 import ExpenseItem from '../components/ExpenseItem';
@@ -10,6 +10,8 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import Navigation from '../components/Navigation';
 import ReceiptViewer from '../components/ReceiptViewer';
 import Avatar from '../components/Avatar';
+import WeekStrip, { lastSevenDays, sameDay } from '../components/WeekStrip';
+import MonthBento from '../components/MonthBento';
 import { expenseApi } from '../api/expenseApi';
 import { householdApi } from '../api/householdApi';
 import { isDarkTheme, setDarkTheme } from '../lib/theme';
@@ -25,7 +27,8 @@ import {
   dayLabel,
   formatEuro,
   computeMonthlyOutOfPocket,
-  computeCategoryBreakdown
+  computeCategoryBreakdown,
+  formatDateSq
 } from '../utils/balances';
 
 const LIST_FILTERS = [
@@ -109,6 +112,16 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
     [currentUserId, expenses, month, settlements]
   );
   const categoryData = useMemo(() => computeCategoryBreakdown(monthExpenses), [monthExpenses]);
+  // Kategoria me shumën më të madhe këtë muaj (kartela blu e rrjetës "bento")
+  const topCategory = useMemo(() => [...categoryData].sort((a, b) => b.total - a.total)[0] || null, [categoryData]);
+
+  // Shiriti javor: 7 ditët e fundit; dita e zgjedhur (parazgjedhja: sot) tregon shpenzimet e saj
+  const weekDays = useMemo(() => lastSevenDays(), []);
+  const [selectedDay, setSelectedDay] = useState(() => weekDays[6]);
+  const dayExpenses = useMemo(() => expenses.filter((e) => sameDay(expenseDateOf(e), selectedDay)), [expenses, selectedDay]);
+  const dayTotal = dayExpenses.reduce((sum, e) => sum + Number(e.total_amount || 0), 0);
+  const hasExpensesOn = useCallback((d) => expenses.some((e) => sameDay(expenseDateOf(e), d)), [expenses]);
+  const openSettings = useCallback(() => setTab('settings'), [setTab]);
   const filterCounts = useMemo(() => {
     const personal = monthExpenses.filter(isPersonalExpense).length;
     return { all: monthExpenses.length, shared: monthExpenses.length - personal, personal };
@@ -150,7 +163,7 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
   // Lartësia e përmbajtjes ndryshon (tab, të dhënat, muaji, filtri) ose dritarja zmadhohet -> rillogarit
   useEffect(() => {
     updateNavVisibility();
-  }, [updateNavVisibility, tab, data, loading, month, listFilter]);
+  }, [updateNavVisibility, tab, data, loading, month, listFilter, selectedDay]);
 
   useEffect(() => {
     window.addEventListener('resize', updateNavVisibility);
@@ -372,41 +385,30 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
         </div>
       )}
 
-      {/* Header: titulli, banesa dhe kodi i saj majtas, profili djathtas */}
-      <header className="px-4 sm:px-5 py-3 bg-white border-b border-slate-100 sticky top-0 z-20">
-        <div className="flex justify-between items-start">
-          <div className="min-w-0 mr-3">
-            <p className="text-xs font-bold uppercase tracking-wider text-indigo-600">Kalkulimi</p>
-            <button
-              onClick={() => setTab('settings')}
-              className="block max-w-full text-left text-lg font-bold text-slate-900 hover:text-indigo-600 truncate cursor-pointer"
-              title="Banesa dhe ftesa"
-            >
-              {household.name}
-            </button>
-            <div className="flex items-center space-x-2 mt-0.5">
-              <span className="text-xs font-semibold tracking-widest text-slate-500 truncate">{household.code}</span>
-              <button
-                onClick={handleCopyCode}
-                className="shrink-0 inline-flex items-center space-x-1 px-2 py-0.5 rounded-md bg-slate-100 hover:bg-slate-200 text-[11px] font-semibold text-slate-600 cursor-pointer"
-                aria-label="Kopjo kodin e banesës"
-              >
-                {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                <span>{copied ? 'U kopjua' : 'Kopjo'}</span>
-              </button>
-            </div>
-          </div>
-
-          <button
-            onClick={() => setTab('settings')}
-            className="shrink-0 rounded-full hover:ring-4 hover:ring-indigo-100 transition-shadow cursor-pointer"
-            aria-label="Cilësimet e profilit"
-            title={activeUserName}
-          >
-            <Avatar name={activeUserName} url={myAvatarUrl} className="w-10 h-10 text-sm font-black" tone="bg-indigo-100 text-indigo-700" />
-          </button>
+      {/* Header: avatari majtas, përshëndetja + data në mes, kërkimi (lista e plotë) djathtas */}
+      <header className="px-4 sm:px-5 pt-4 pb-2 bg-slate-50 sticky top-0 z-20 flex items-center">
+        <button
+          onClick={openSettings}
+          className="shrink-0 rounded-full hover:ring-4 hover:ring-[#fdba74]/40 transition-shadow cursor-pointer"
+          aria-label="Cilësimet e profilit"
+          title={activeUserName}
+        >
+          <Avatar name={activeUserName} url={myAvatarUrl} className="w-11 h-11 text-sm font-black" tone="bg-[#fdba74] text-[#0f172a]" />
+        </button>
+        <div className="flex-1 min-w-0 mx-3 text-center">
+          <p className="text-base font-bold text-slate-900 truncate">Përshëndetje, {activeUserName.split(' ')[0]}</p>
+          <p className="text-xs text-slate-500 truncate">
+            Sot {formatDateSq(new Date(), { year: false })} · {household.name}
+          </p>
         </div>
-
+        <button
+          onClick={() => setTab('expenses')}
+          className="shrink-0 w-11 h-11 rounded-full border border-slate-200 text-slate-900 hover:bg-slate-100 flex items-center justify-center cursor-pointer"
+          aria-label="Të gjitha shpenzimet"
+          title="Të gjitha shpenzimet"
+        >
+          <Search className="w-5 h-5" />
+        </button>
       </header>
 
       {/* Përmbajtja */}
@@ -431,9 +433,10 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
           </div>
         ) : tab === 'home' ? (
           <>
-            {/* PËRMBLEDHJA: borxhi kryesor, shpenzimet e fundit, pastaj muaji dhe kategoritë */}
+            {/* PËRMBLEDHJA: kartela "hero" e bilancit, java, rrjeta e muajit, shpenzimet e ditës, kategoritë */}
             <BalanceSettlement
               avatarOf={avatarOf}
+              members={members}
               balance={data?.summary?.settlementBalance}
               settlements={data?.settlements}
               currentUserId={currentUserId}
@@ -457,8 +460,32 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
               </div>
             )}
 
-            <div className="flex justify-between items-center mb-2.5 mt-6">
-              <h2 className="text-base font-bold text-slate-900">Shpenzimet e Fundit</h2>
+            <WeekStrip days={weekDays} selected={selectedDay} onSelect={setSelectedDay} hasExpenses={hasExpensesOn} />
+
+            <h2 className="text-xl font-bold text-slate-900 mb-3">Muaji yt</h2>
+            <MonthBento
+              month={month}
+              monthlyTotal={monthlyTotal}
+              isCurrentMonth={isCurrentMonth}
+              onPrev={prevMonth}
+              onNext={nextMonth}
+              onToday={thisMonth}
+              topCategory={topCategory}
+              members={members}
+              avatarOf={avatarOf}
+              onMembers={openSettings}
+            />
+
+            {/* Shpenzimet e ditës së zgjedhur te shiriti javor */}
+            <div className="flex justify-between items-end mb-3">
+              <div>
+                <h2 className="text-xl font-bold text-slate-900">{dayLabel(selectedDay)}</h2>
+                <p className="text-xs text-slate-500">
+                  {dayExpenses.length === 0
+                    ? 'Asnjë shpenzim'
+                    : `${dayExpenses.length} shpenzim${dayExpenses.length === 1 ? '' : 'e'} · ${formatEuro(dayTotal)}`}
+                </p>
+              </div>
               {expenses.length > 0 && (
                 <button
                   onClick={() => setTab('expenses')}
@@ -470,13 +497,17 @@ export default function DashboardScreen({ onNavigateToAdd, onNavigateToEdit, use
             </div>
             {expenses.length === 0 ? (
               emptyState
+            ) : dayExpenses.length === 0 ? (
+              <div className="py-6 mb-6 text-center rounded-3xl border border-dashed border-slate-200">
+                <Coffee className="w-6 h-6 text-slate-400 mx-auto" />
+                <p className="text-sm text-slate-500 mt-1.5">Ditë pa shpenzime</p>
+              </div>
             ) : (
-              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm divide-y divide-slate-100 mb-6">
-                {expenses.slice(0, 3).map(renderExpense)}
+              <div className="bg-white rounded-3xl border border-slate-100 shadow-sm divide-y divide-slate-100 mb-6">
+                {dayExpenses.map(renderExpense)}
               </div>
             )}
 
-            {monthCard}
             {categoryData.length > 0 && <CategoryChart categoryData={categoryData} />}
           </>
         ) : tab === 'expenses' ? (
